@@ -1,0 +1,185 @@
+---
+title: "parameter recovery"
+author: "BBZ"
+date: "11/8/2017"
+output: html_document
+---
+
+# Overview
+The aim of this notebook is to determine whether the optimization procedure can recover model parameters with which data were simulated.
+
+Parameter recovery will be performed for the four core models ("parameterizations") that will be tested:
+- sensitivity of the value function
+- sensitivity of the time function
+- scaling of the value function
+- scaling of the time function
+
+# Preliminaries
+
+Clear everything
+```{r Provide access to pipe from magrittr }
+rm(list = ls())
+```
+
+Make `magrittr`'s pipe accessible from notebook.
+```{r Provide access to pipe from magrittr }
+"%>%" <- magrittr::`%>%`
+```
+
+Set seed
+```{r Set state for random number generation}
+set.seed(19821101)
+```
+
+Task parameters
+```{r}
+frames <- c('delay','date')
+m_l <- c(19.68)
+pct_m_l <- c(0.2, 0.5, 0.7, 0.8, 0.88, 0.93, 0.97, 0.99)
+t_s <- c(0)
+interval <- c(1, 2, 3, 5, 7, 10, 14)
+n_reps <- 90 # This number should be large, to ensure that the simulated data is representative of the underlying parameters
+```
+
+Task stimuli
+```{r Task stimuli}
+stimuli <- 
+  itchmodel::make_stimulus_df(frames = frames,
+                              m_l = m_l,
+                              pct_m_l = pct_m_l,
+                              t_s = t_s,
+                              interval = interval,
+                              n_reps = n_reps
+                              )
+```
+
+Optimization parameters
+```{r Optimization parameters}
+max_iter <- 500
+reltol <- 1e-6
+NP_per_free_param <- 20
+```
+
+# Parameter recovery
+
+## Parameterization: sensitivity of the value function
+
+Specify model parameters and simulate synthetic data.
+```{r Specify model parameters and simulate synthetic data for value sensitivity parameterization}
+# Specify model parameters
+parameters_sens_val <- list('alpha' = c(0.85, 0.95), # Sensitivity of the value function, varies between frames
+                            'mu' = 1, # Scaling of the value function
+                            'beta' = 0.70, # Sensitivity of the time function
+                            'kappa' = 1, # Scaling of the time function
+                            'w' = 0.5, # Attentional weight
+                            "a" = 1, # Threshold separation
+                            "t0" = 0.1 # Non-decision time,
+                            )
+
+# Specify lower and upper bounds on parameters
+lowers <- get_par_bounds(model = "DDM", parameterization = "date_delay_value_sensitivity", bound = "lower")
+uppers <- get_par_bounds(model = "DDM", parameterization = "date_delay_value_sensitivity", bound = "upper")
+names <- get_par_names(model = "DDM", parameterization = "date_delay_value_sensitivity")
+
+# Determine number of free parameters
+N_free_param <- sum(!(lowers == uppers))
+
+# Simulate synthetic data
+synthetic_data_sens_val <- 
+  itchmodel::sim_data(stimuli = stimuli,
+                      parameters = parameters_sens_val,
+                      parameterization = "date_delay_value_sensitivity") %>% 
+  dplyr::select(-parameters)
+
+```
+
+Fit the DDM model with value sensitivity parameterization to the synthetic data
+```{r Fit the DDM model with value sensitivity parameterization to the synthetic data}
+
+
+optim_data_sens_val <- 
+  itchmodel::fit_model(data = synthetic_data_sens_val , 
+                       model = "DDM", 
+                       parameterization = "value_sensitivity", 
+                       control = list(itermax = max_iter,
+                                      reltol = reltol,
+                                      NP = NP_per_free_param * N_free_param
+                                      ))
+
+```
+
+# Write all relevant data to disk
+
+Print summary
+```{r Print summary of optimization procedure - DDM model with value sensitivity parameterization}
+summary(optim_data_sens_val)
+```
+
+Plots
+```{r Plot evolution of parameters values across iterations - DDM model with value sensitivity parameterization}
+plot_parameter_recovery_results(model = "DDM",
+                                parameterization = "time_sensitivity",
+                                orig_params = unlist(parameters_sens_val),
+                                optim_output = optim_data_sens_val
+                                )
+```
+
+```{r Plot evolution of optimization function value across iterations - DDM model with value sensitivity parameterization}
+# Plot negative maximum likelihood evolved across iterations
+plot_optim_fun_evol(optim_data_sens_val)
+```
+
+## Parameterization: sensitivity of the time function
+
+Specify model parameters and simulate synthetic data.
+```{r Specify model parameters and simulate synthetic data for time sensitivity parameterization}
+# Specify model parameters
+parameters_sens_time <- list('alpha' = 0.90, # Sensitivity of the value function
+                             'mu' = 1, # Scaling of the value function
+                             'beta' = c(0.65,0.75), # Sensitivity of the time function, varies between frames
+                             'kappa' = 1, # Scaling of the time function
+                             'w' = 0.5, # Attentional weight
+                             "a" = 1, # Threshold separation
+                             "t0" = 0.1 # Non-decision time,
+                             )
+# Simulate synthetic data
+synthetic_data_sens_time <- 
+  itchmodel::sim_data(stimuli = stimuli,
+                      parameters = parameters_sens_time,
+                      parameterization = "time_sensitivity") %>% 
+  dplyr::select(-parameters)
+
+```
+
+Fit the DDM model with time sensitivity parameterization to the synthetic data
+```{r Fit the DDM model with time sensitivity parameterization to the synthetic data}
+optim_data_sens_time <- 
+  itchmodel::fit_model(data = synthetic_data_sens_time , 
+                       model = "DDM", 
+                       parameterization = "time_sensitivity", 
+                       max_iterations = max_iter)
+```
+
+Print summary
+```{r Print summary of optimization procedure - DDM model with time sensitivity parameterization}
+summary(optim_data_sens_time)
+```
+
+Plots
+```{r Plot evolution of parameters values across iterations - DDM model with time sensitivity parameterization}
+plot_parameter_recovery_results(model = "DDM",
+                                parameterization = "time_sensitivity",
+                                orig_params = unlist(parameters_sens_time),
+                                optim_output = optim_data_sens_time
+                                )
+```
+
+```{r Plot evolution of optimization function value across iterations - DDM model with time sensitivity parameterization}
+# Plot negative maximum likelihood evolved across iterations
+plot_optim_fun_evol(optim_data_sens_time)
+```
+
+
+## Parameterization: scaling of the value function
+
+## Parameterization: scaling of the time function

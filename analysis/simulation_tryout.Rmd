@@ -1,0 +1,396 @@
+---
+title: "simulation notebook"
+author: "BBZ"
+date: "9/27/2017"
+output: html_document
+---
+
+# Preliminaries
+
+Clear everything
+```{r Provide access to pipe from magrittr }
+rm(list = ls())
+```
+
+Make `magrittr`'s pipe accessible from notebook.
+```{r Provide access to pipe from magrittr }
+"%>%" <- magrittr::`%>%`
+```
+
+- __Dshemuchadse et al., J Exp Psychol Gen, 2013 - N=36 - 448 trials total__
+  - Intervals, 7 levels (1,2,3,5,7,10,14 days)
+  - Value of sooner option, 8 levels (20%, 50%, 70%, 80%, 88%, 93%, 97%, 99%)
+  - Frame, 2 levels (date, delay)
+  - Delay of sooner option, 2 levels (0, 7 days)
+  - Value of the later option, 2 levels (€19.68, €20.32)
+
+# Simulations
+
+Step 1 - Choose parameter values; for the critical parameter, the difference should be equal to the SESOI (e.g. a Cohen's d of 0.3)
+Step 2 - Simulate data (one 'session') with those parameter values
+Step 3 - Fit models to it
+Step 3a - Fit the itch model to it (can we recover the actual parameters?)
+Step 3b - Fit the competing model to it (can it identify the data-generating model?)
+Step 3c - Fit Bayesian logistic regression to it (can we detect/reject an effect using ROPE?)
+Step 4 - Repeat Step 2-3 N times
+Step 5 - Decide on N_subjects and N_trials
+
+Step 6 - Repeat the entire procedure for different parameter values
+Step 7 - Repeat the entire procedure for the other task
+
+We want to plot several things:
+
+The 95% HDI
+
+
+## Stimuli 
+
+
+### Parameters
+
+```{r}
+frames = c('delay','date')
+t_s = c(777)
+interval = c(1,2,3,5,7,10,14)
+m_l = c(19.68)
+pct_m_l <- c(0.2, 0.5, 0.7, 0.8, 0.88, 0.93, 0.97, 0.99)
+```
+
+### Function for making stimulus tibble
+```{r}
+make_stimulus_df <- function(frames, pct_m_l, m_l, t_s, interval) {
+  expand.grid(frame = factor(frames, levels = c('delay','date')),
+              pct_m_l = pct_m_l,
+              m_l = m_l,
+              t_s = t_s,
+              interval = interval
+              ) %>%
+  dplyr::mutate(m_s = pct_m_l * m_l,
+                t_l = t_s + interval) %>%
+  tibble::as.tibble()
+}
+```
+
+### Data for modeling
+```{r}
+stimuli_mod <- make_stimulus_df(frames = c('delay', 'date'), 
+                                pct_m_l = c(0.2, 0.5, 0.7, 0.8, 0.88, 0.93, 0.97, 0.99), 
+                                m_l = c(19.68), 
+                                t_s = c(7), 
+                                interval = c(1,2,3,5,7,10,14)
+                                )
+```
+
+### Data for plotting
+```{r}
+stimuli_plot <- make_stimulus_df(frames = c('delay', 'date'), 
+                                 pct_m_l = seq(from = 0, to = 0.995, by = 0.005), 
+                                 m_l = c(19.68), 
+                                 t_s = c(7), 
+                                 interval = c(1,2,3,5,7,10,14)
+                                 )
+```
+
+## Parameters
+```{r}
+parameters <- list('alpha' = c(0.85, 0.93), # Alpha varies between conditions
+                   'mu' = 1,
+                   'beta' = 0.70,
+                   'kappa' = 1,
+                   'w' = 0.5,
+                   "a" = 1, # threshold separation 
+                   "z" = 0, # starting point 
+                   "t0" = 0.1, # non-decision time,
+                   "sv" = 0, 
+                   "sz" = 0, # inter-trial variability of starting point
+                   "st0" = 0 # inter-trial variability of non-decision time
+                   )
+
+# Repeat parameters, if stationary across conditions
+parameters <- itchmodel::eq_list_elements(parameters)
+
+# Make a parameter tibble
+parameters_tib <- 
+  parameters %>%
+  tibble::as.tibble() %>% 
+  dplyr::mutate(frame = factor(frames, levels = frames)) %>%
+  dplyr::select(frame, dplyr::everything()) %>%
+  dplyr::group_by(frame) %>% 
+  tidyr::nest(.key = 'parameters')
+
+```
+
+## Simulate data
+
+### Function
+```{r}
+sim_data <- function(stimuli, parameters) {
+  stimuli %>%
+    dplyr::group_by(frame) %>%
+    tidyr::nest(.key = 'stimuli') %>%
+    dplyr::left_join(parameters, by = 'frame') %>%
+    dplyr::mutate(data = purrr::map2(.x = stimuli, 
+                                     .y = parameters, 
+                                     .f = itchmodel::dai_busemeyer_diffusion)
+                  )
+}
+```
+
+### For modeling
+```{r}
+data_for_modeling <- 
+  sim_data(stimuli = stimuli_mod,
+           parameters = parameters_tib) %>%
+  tidyr::unnest(data)
+```
+
+### For plotting
+```{r}
+data_for_plotting <- 
+  sim_data(stimuli = stimuli_plot,
+           parameters = parameters_tib) %>%
+  tidyr::unnest(data) 
+```
+
+
+# Model fitting - general procedure
+
+- Split data by condition (frame)
+- Pick random set of parameters, given a parameterization
+- Simulate data with this parameter set
+- Compute negative log likelihood
+- Optimize this iteratively
+
+# Fit the data model that generated the data
+Goal: parameter recovery
+
+```{r}
+
+```
+
+
+```{r}
+
+
+# check whether drift rate or threshold is free to vary over conditions
+check_fit_parameters = function(x) {
+  if(sapply(x, length)["alpha"] == 2) { 
+    parameterisation = "value-sensitivity" 
+  } else if(sapply(x, length)["beta"] == 2) { 
+    parameterisation = "time-sensitivity" 
+  } else if(sapply(x, length)["mu"] == 2) {
+    parameterisation = "value-scaling" 
+  } else if(sapply(x, length)["kappa"] == 2) {   
+    parameterisation = "time-scaling" 
+  } else { 
+    stop("Specify two correct value sensitivity (alpha), time sensitivity (beta), value scaling (mu) or time-scaling (kappa) parameters") 
+  }
+  parameterisation
+}
+
+```
+
+```{r}
+optim_fun <- function(x, data, model, parameterization, par_names) {
+  
+  # Compute negative log-likelihood
+  ll_diffusion(pars[[1]], , response)
+  
+  log.likelihood.1condition(x=pars[[1]],data=subset(data,A==1),model=model) + 
+    log.likelihood.1condition(x=pars[[2]],data=subset(data,A==2),model=model)
+}
+```
+
+
+
+```{r}
+
+
+
+
+
+fit_model <- function(data, 
+                      model = "DDM", 
+                      parameterization = "", 
+                      max.iterations = 250){
+  
+  # Assertions ---
+  
+  ## Assert that parameterization is correct
+    if (!(parameterization == "one_condition" | 
+         parameterization == "value_sensitivity" | 
+         parameterization == "time_sensitivity" | 
+         parameterization == "value_scaling" | 
+         parameterization == "time_scaling")) 
+    stop("Specify parameterization as \n\"one_condition\" (i.e., estimate parameters from a single experimental condition), \n\"value_sensitivity\" (i.e., estimate free value function sensitivity parameter across two experimental conditions), \n\"time_sensitivity\" (i.e., estimate free time function sensitivity parameter across two experimental conditions), \n\"value_scaling\" (i.e., estimate free value function scaling parameter across two experimental conditions), or \n\"time_scaling\" (i.e., estimate free time function scaling parameter  across two experimental conditions).")
+  
+  # Get model parameter names
+  par_names <- get_par_names(model = "DDM", parameterization = parameterization)
+  
+  # Set lower and upper boundaries
+  lowers = c()
+  uppers = c()
+  
+  # Estimate model parameters, using differential evolution
+  out <- 
+    DEoptim::DEoptim(fn = ll_diffusion, # Function to be optimized (minimized)
+                     lower = lowers, # Vector specifying lower bounds on parameters
+                     upper = uppers, # Vector specifying upper bounds on parameters
+                     data = data, # Data, input argument to optimization function
+                     model = model, # Model, input argument to optimization function
+                     parameterization = parameterization, # Parameterization, input argument to optimization function
+                     par_names = par_names, # Parameter names, input argument to optimization function
+                     control = list(itermax = max_iterations)
+                     ) # List of control parameters
+  
+  
+  
+
+  
+}
+```
+
+```{r}
+
+```
+
+
+## Parameter recovery
+```{r}
+
+
+
+```
+
+## Parameter recovery
+
+# Fit the data using Bayesian logistic regression
+
+# Plot
+```{r}
+ggplot2::ggplot(data_for_plotting,
+                ggplot2::aes(x = m_s,
+                             y = prob_ll, 
+                             color = factor(interval, levels = interval),
+                             group = factor(interval, levels = interval))
+                ) + 
+  ggplot2::facet_wrap("frame") +
+  ggplot2::geom_line()
+
+```
+
+## Plot subjective values
+
+### Compute subjective values
+```{r}
+# Plot 'subjective values'
+(sv_data <- 
+  data_for_plotting %>% 
+  dplyr::group_by(frame, interval) %>% 
+  dplyr::summarize(m_l = mean(m_l), 
+                   ip = approx(x = prob_ll, y = m_s, xout = 0.5)$y,
+                   sv = ip/m_l))
+```
+
+### Plot them
+```{r}
+ggplot2::ggplot(sv_data,
+                ggplot2::aes(x = interval,
+                             y = sv, 
+                             color = frame,
+                             group = frame)
+                ) + 
+  ggplot2::geom_point() + 
+  ggplot2::scale_x_continuous(name = 'interval',
+                              limits = c(0,15)
+                              ) +
+  ggplot2::scale_y_continuous(name = 'subjective value',
+                              breaks = seq(from = 0, to = 1, by = 0.1),
+                              limits = c(0,1)
+                              ) + 
+  ggplot2::theme_minimal()
+```
+
+
+# Other stuff
+## Cognitive model parameters
+
+These are informed based on best-fitting parameters from Table 10 in Dai & Busemeyer, J Exp Psychol Gen, 2014
+```{r}
+
+# # Smallest effect size of interest (SESOI), expressed as s.d. (Cohen's d)
+# sesoi <- 0.3
+# 
+# # Population parameters
+# time_model_pop_parameters <- list('alpha' = list('date' = list('mean' = 0.94,
+#                                                                'sd' = 0.64),
+#                                                  'delay' = list('mean' = 0.94 - sesoi * 0.64,
+#                                                                 'sd' = 0.64)
+#                                                  ),
+#                                   'beta' = list('mean' = 0.75,
+#                                                 'sd' = 0.65),
+#                                   'w' = list('mean' = 0.48,
+#                                              'sd' = 0.18),
+#                                   's' = list('mean' = 1,
+#                                              'sd' = 0),
+#                                   'z' = list('mean' = 0,
+#                                              'sd' = 0),
+#                                   'theta' = list('mean' = 1.94,
+#                                                  'sd' = 0.64)
+#                                   )
+# 
+# 
+# 
+# parameters <- list('alpha' = c(0.6, 0.75), # Alpha varies between conditions
+#                    'beta' = 0.9,
+#                    'w' = 0.5,
+#                    's' = 1,
+#                    'z' = 0,
+#                    'theta' = 20
+#                    )
+```
+
+
+Simulation parameters
+```{r}
+# n_subject <- 50 # How many subjects per experiment
+# n_sim <- 500 # How many experiments to simulate
+```
+
+
+# Simulation
+
+## Draw parameters from population distribution
+```{r}
+
+# parameters <- list('alpha' = c(rnorm(1,
+#                                      mean = time_model_pop_parameters$alpha$date$mean,
+#                                      sd = time_model_pop_parameters$alpha$date$sd),
+#                                rnorm(1,
+#                                      mean = time_model_pop_parameters$alpha$delay$mean,
+#                                      sd = time_model_pop_parameters$alpha$delay$sd)
+#                                ),
+#                    'beta' = rnorm(1,
+#                                   mean = time_model_pop_parameters$beta$mean,
+#                                   sd = time_model_pop_parameters$beta$sd),
+#                    'w' = rnorm(1,
+#                                mean = time_model_pop_parameters$w$mean,
+#                                sd = time_model_pop_parameters$w$sd),
+#                    's' = rnorm(1,
+#                                mean = time_model_pop_parameters$s$mean,
+#                                sd = time_model_pop_parameters$s$sd),
+#                    'z' = rnorm(1,
+#                                mean = time_model_pop_parameters$z$mean,
+#                                sd = time_model_pop_parameters$z$sd),
+#                    'theta' = rnorm(1,
+#                                mean = time_model_pop_parameters$theta$mean,
+#                                sd = time_model_pop_parameters$theta$sd)
+#                    )
+```
+
+
+Now we need to compute Maximum Likelihood. Pointers:
+- For Diffusion model: Ratcliff & Tuerlinckx 2002
+- For Decision Field Theory: Junyi Dai's MATLAB code (for Decision Field Theory)
+- For LBA: code from Brown & Heathcote 2008?
+

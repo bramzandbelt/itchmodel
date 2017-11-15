@@ -1,0 +1,274 @@
+---
+title: "inspect_model_differences_in_terms_of_drift_rate"
+author: "BBZ"
+date: "11/13/2017"
+output: html_document
+---
+
+# Overview
+In this notebook, I investigate how the various parameterizations tested influence the drift rate, and the difference in drift rate across framing conditions.
+
+# Preliminaries
+
+Clear everything
+```{r Provide access to pipe from magrittr }
+rm(list = ls())
+```
+
+Make `magrittr`'s pipe accessible from notebook.
+```{r Provide access to pipe from magrittr }
+"%>%" <- magrittr::`%>%`
+```
+
+Function for plotting
+```{r Function for plotting v}
+
+plot_v_heatmap <- function(data) {
+    ggplot2::ggplot(data = data,
+                  ggplot2::aes(x = delta_m,
+                               y = delta_t)
+                  ) + 
+    ggplot2::facet_wrap("condition") + 
+    ggplot2::geom_tile(ggplot2::aes(fill = v)) + 
+    ggplot2::geom_text(ggplot2::aes(label = round(v, 1)),
+                       size = 2) +
+    ggplot2::scale_fill_gradient2(low = "#67a9cf", mid = '#f7f7f7' , high = "#ef8a62") +
+    
+    ggplot2::coord_equal() + 
+    
+    ggplot2::ggtitle("Drift rate as a function of condition (panels), money difference (x), and time difference (y)") +
+    ggplot2::scale_x_discrete(name = "Money difference between options (in Euros)") +
+    ggplot2::scale_y_discrete(name = "Time difference between options (in days)") +
+    
+    ggplot2::theme_minimal()
+}
+
+
+```
+
+Make stimuli
+```{r Make stimuli}
+
+frames <- c('delay','date')
+m_l <- c(50)
+pct_m_l <- seq(from = 0.10, to = 0.90, by = 0.10)
+t_s <- c(0)
+interval <- seq(from = 10, to = 90, by = 10)
+
+date_delay_stimuli <- 
+  itchmodel::make_stimulus_df(frames = frames,
+                              m_l = m_l,
+                              pct_m_l = pct_m_l,
+                              t_s = t_s,
+                              interval = interval,
+                              n_reps = 1
+                              )
+```
+
+# Simulate data
+
+## Date delay value sensitivity model
+
+```{r Simulate data for date_delay_value_sensitivity model}
+
+# Determine parameters
+par_delay_value_sensitivity <- 
+  list('alpha' = 0.85,
+       'mu' = 1,
+       'beta' = 0.70,
+       'kappa' = 1,
+       'w' = 0.5,
+       "a" = 1,
+       "t0" = 1 
+       )
+
+par_date_value_sensitivity <- 
+  list('alpha' = 0.95,
+       'mu' = 1,
+       'beta' = 0.70,
+       'kappa' = 1,
+       'w' = 0.5,
+       "a" = 1,
+       "t0" = 1 
+       )
+
+# Make tidy data frame
+tb_date_delay_value_sensitivity <- 
+  stimuli %>%
+  dplyr::mutate(delta_m = as.factor(m_l - m_s),
+                delta_t = as.factor(t_l - t_s),
+                v_delay = compute_drift_rate(parameters = par_delay_value_sensitivity, 
+                                             stimuli = stimuli, 
+                                             parameterization = "date_delay_value_sensitivity", 
+                                             frame = "delay"),
+                v_date = compute_drift_rate(parameters = par_date_value_sensitivity, 
+                                            stimuli = stimuli, 
+                                            parameterization = "date_delay_value_sensitivity", 
+                                            frame = "date"),
+                v_date_minus_delay = v_date - v_delay
+                ) %>%
+  tidyr::gather(key = 'condition', value = 'v', v_delay:v_date_minus_delay) %>%
+  dplyr::mutate(condition = factor(condition, levels = c("v_delay", "v_date", "v_date_minus_delay")))
+
+```
+
+
+
+## Date-delay time scaling model
+
+```{r Simulate data for date_delay_time_scaling model}
+
+# Determine parameters
+par_delay_time_scaling <- 
+  list('alpha' = 0.90,
+       'mu' = 1,
+       'beta' = 0.70,
+       'kappa' = 1.1,
+       'w' = 0.5,
+       "a" = 1,
+       "t0" = 1 
+       )
+
+par_date_time_scaling <- 
+  list('alpha' = 0.90,
+       'mu' = 1,
+       'beta' = 0.70,
+       'kappa' = 1,
+       'w' = 0.5,
+       "a" = 1,
+       "t0" = 1 
+       )
+
+# Make tidy data frame
+tb_date_delay_time_scaling <- 
+  stimuli %>%
+  dplyr::mutate(delta_m = as.factor(m_l - m_s),
+                delta_t = as.factor(t_l - t_s),
+                v_delay = compute_drift_rate(parameters = par_delay_time_scaling, 
+                                             stimuli = stimuli, 
+                                             parameterization = "date_delay_time_scaling", 
+                                             frame = "delay"),
+                v_date = compute_drift_rate(parameters = par_date_time_scaling, 
+                                            stimuli = stimuli, 
+                                            parameterization = "date_delay_time_scaling", 
+                                            frame = "date"),
+                v_date_minus_delay = v_date - v_delay
+                ) %>%
+  tidyr::gather(key = 'condition', value = 'v', v_delay:v_date_minus_delay) %>%
+  dplyr::mutate(condition = factor(condition, levels = c("v_delay", "v_date", "v_date_minus_delay")))
+
+```
+
+## Defer-speedup effect: value scaling model
+
+```{r Simulate defer-speedup effect with value scaling model}
+
+# Determine parameters
+par_defer_value_scaling <- 
+  list('alpha' = 0.90,
+       'mu' = 1.2,
+       'beta' = 0.70,
+       'kappa' = 1,
+       'w' = 0.5,
+       "a" = 1,
+       "t0" = 1 
+       )
+
+par_speedup_value_scaling <- 
+  list('alpha' = 0.90,
+       'mu' = 1.2,
+       'beta' = 0.70,
+       'kappa' = 1,
+       'w' = 0.5,
+       "a" = 1,
+       "t0" = 1 
+       )
+
+# Make tidy data frame
+tb_defer_speedup_value_scaling <- 
+  stimuli %>%
+  dplyr::mutate(delta_m = as.factor(m_l - m_s),
+                delta_t = as.factor(t_l - t_s),
+                v_defer = compute_drift_rate(parameters = par_defer_value_scaling, 
+                                             stimuli = stimuli, 
+                                             parameterization = "defer_speedup_value_scaling", 
+                                             frame = "defer"),
+                v_speedup = compute_drift_rate(parameters = par_speedup_value_scaling, 
+                                            stimuli = stimuli, 
+                                            parameterization = "defer_speedup_value_scaling", 
+                                            frame = "speedup"),
+                v_defer_minus_speedup = v_defer - v_speedup
+                ) %>%
+  tidyr::gather(key = 'condition', value = 'v', v_defer:v_defer_minus_speedup) %>%
+  dplyr::mutate(condition = factor(condition, levels = c("v_defer", "v_speedup", "v_defer_minus_speedup")))
+
+```
+
+## Defer-speedup effect: time scaling model
+
+```{r Simulate defer-speedup effect with value scaling model}
+
+# Determine parameters
+par_defer_time_scaling <- 
+  list('alpha' = 0.90,
+       'mu' = 1,
+       'beta' = 0.70,
+       'kappa' = 1.2,
+       'w' = 0.5,
+       "a" = 1,
+       "t0" = 1 
+       )
+
+par_speedup_time_scaling <- 
+  list('alpha' = 0.90,
+       'mu' = 1,
+       'beta' = 0.70,
+       'kappa' = 1/1.2,
+       'w' = 0.5,
+       "a" = 1,
+       "t0" = 1 
+       )
+
+# Make tidy data frame
+tb_defer_speedup_time_scaling <- 
+  stimuli %>%
+  dplyr::mutate(delta_m = as.factor(m_l - m_s),
+                delta_t = as.factor(t_l - t_s),
+                v_defer = compute_drift_rate(parameters = par_defer_time_scaling, 
+                                             stimuli = stimuli, 
+                                             parameterization = "defer_speedup_time_scaling", 
+                                             frame = "defer"),
+                v_speedup = compute_drift_rate(parameters = par_speedup_time_scaling, 
+                                            stimuli = stimuli, 
+                                            parameterization = "defer_speedup_time_scaling", 
+                                            frame = "speedup"),
+                v_defer_minus_speedup = v_defer - v_speedup
+                ) %>%
+  tidyr::gather(key = 'condition', value = 'v', v_defer:v_defer_minus_speedup) %>%
+  dplyr::mutate(condition = factor(condition, levels = c("v_defer", "v_speedup", "v_defer_minus_speedup")))
+
+```
+
+# Plot data
+
+
+```{r}
+plot_v_heatmap(data = tb_date_delay_value_sensitivity)
+```
+
+
+
+```{r}
+plot_v_heatmap(data = tb_date_delay_time_scaling)
+```
+
+
+```{r}
+plot_v_heatmap(data = tb_defer_speedup_value_scaling)
+```
+
+
+```{r}
+plot_v_heatmap(data = tb_defer_speedup_time_scaling)
+```
+
