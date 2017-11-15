@@ -23,7 +23,7 @@ for i_parameterization in `echo $parameterization_string`
 do
 	for i_n_rep in `echo $n_reps_string`
 	do
-		qsub -l walltime=`echo $WALLTIME` -l mem=`echo "$MEM"mb` -v parameterization=`echo "$i_parameterization"`,n_rep=`echo "$i_n_rep"`,ouput_dir=`echo "$output_dir"` parameterization=`echo "$i_parameterization"` /home/control/brazan/itchmodel/pbs/pbs_job_param_recovery.sh
+		qsub -l walltime=`echo $WALLTIME` -l mem=`echo "$MEM"mb` -v parameterization=`echo "$i_parameterization"`,n_rep=`echo "$i_n_rep"`,ouput_dir=`echo "$output_dir"` /home/control/brazan/itchmodel/pbs/pbs_job_param_recovery.sh
 		# qsub -l walltime=`echo $WALLTIME` -l nodes=1:ppn=`echo $PPN` -l mem=`echo "$MEM"mb` -v parameterization=`echo "$i_parameterization"`,n_rep=`echo "$i_n_rep"`,ouput_dir=`echo "$output_dir"` parameterization=`echo "$i_parameterization"` /home/control/brazan/itchmodel/pbs/pbs_job_param_recovery.sh
 
 	done
