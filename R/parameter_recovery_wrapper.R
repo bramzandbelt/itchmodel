@@ -13,8 +13,14 @@ if (stringr::str_detect(parameterization, "date_delay")) {
 }
 
 # Run parameter recovery
-parameter_recovery(parameterization = parameterization,
-                   frames = frames,
-                   n_reps = n_reps,
-                   output_dir = output_dir
-                   )
+# parameter_recovery(parameterization = parameterization,
+#                    frames = frames,
+#                    n_reps = n_reps,
+#                    output_dir = output_dir
+#                    )
+
+print(paste0("parameterization: ", parameterization))
+print(paste0("n_reps: ", n_reps))
+print(paste0("output_dir: ", output_dir))
+print(paste0("frames: ", frames))
+
