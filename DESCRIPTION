@@ -1,11 +1,21 @@
 Package: itchmodel
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Cognitive model of time framing effects in intertemporal choice
 Version: 0.1.0
-Author: Who wrote it
+Author: Bram B. Zandbelt
 Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
-Encoding: UTF-8
+Description: Provides coding for modeling choices and response time distributions from intertemporal choice data involving manipulation of time framing. Specifically, the two time framing phenomena are the defer/speedup effect (Loewenstein, Manag Sci, 1988) and the date/delay effect (Read et al., Manag Sci, 2005)
+License: MIT
+Encoding: UTF-8 
 LazyData: true
+Imports:
+    DEoptim(>= 2.2-4),
+    ggthemes (>= 3.4.0),
+    MASS,
+    runjags (>= 2.0.4-2),
+    tidyverse (>= 1.2.1)
+Suggests: testthat,
+    knitr,
+    rmarkdown
+RoxygenNote: 6.0.1
+VignetteBuilder: knitr
