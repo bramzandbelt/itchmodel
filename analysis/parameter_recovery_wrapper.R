@@ -1,5 +1,5 @@
 # Provide access to intertemporal choice model (itchmodel) functions
-library(itchmodel)
+
 
 # Get values from PBS environment variables
 parameterization <- Sys.getenv("parameterization")
