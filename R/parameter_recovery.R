@@ -1,8 +1,5 @@
 parameter_recovery <- function(parameterization, frames, n_reps, output_dir) {
 
-  library(itchmodel)
-  library(tidyverse)
-
   # Preliminaries -----------------------------------------------------------
 
   ## Provide access to Magrittr's pipe
