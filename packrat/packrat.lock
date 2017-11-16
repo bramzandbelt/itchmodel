@@ -11,6 +11,11 @@ Package: BH
 Source: CRAN
 Version: 1.65.0-1
 
+Package: DEoptim
+Source: CRAN
+Version: 2.2-4
+Hash: c8f4e2e95b676df5ac318d1cf357fefc
+
 Package: R6
 Source: CRAN
 Version: 2.2.2
@@ -118,6 +123,16 @@ Version: 0.10.1
 Requires: stringr
 Hash: 54d95f4ec6d0300100413ed0127d89ae
 
+Package: evd
+Source: CRAN
+Version: 2.3-2
+Hash: c6e331f21cc8629a516f0a0ca1f0e59f
+
+Package: expm
+Source: CRAN
+Version: 0.999-2
+Hash: e8f4ac7e9f15ec8b84b4f7ee5ab3104f
+
 Package: forcats
 Source: CRAN
 Version: 0.2.0
@@ -139,6 +154,11 @@ Package: glue
 Source: CRAN
 Version: 1.1.1
 Hash: dfd5a27768175ae51d08dc6beba1ef11
+
+Package: gsl
+Source: CRAN
+Version: 1.9-10.3
+Hash: e5e0bbd64667640c5cee0eb4918aa11a
 
 Package: gtable
 Source: CRAN
@@ -166,6 +186,12 @@ Source: CRAN
 Version: 0.3.6
 Requires: Rcpp, digest
 Hash: 5b070a04ef8df1953544873db1c5896e
+
+Package: htmlwidgets
+Source: CRAN
+Version: 0.9
+Requires: htmltools, jsonlite, yaml
+Hash: 7514f6ea9f3bef6d9b6c945095275302
 
 Package: httr
 Source: CRAN
@@ -227,11 +253,22 @@ Version: 0.1.1
 Requires: broom, dplyr, lazyeval, magrittr, purrr, tibble, tidyr
 Hash: dc3b2de1720a22560510dccbdffe2c17
 
+Package: msm
+Source: CRAN
+Version: 1.6.4
+Requires: expm, mvtnorm
+Hash: 41df2c2c2204a8f5840deb4ce693dec9
+
 Package: munsell
 Source: CRAN
 Version: 0.4.3
 Requires: colorspace
 Hash: f96d896947fcaf9b6d0074002e9f4f9d
+
+Package: mvtnorm
+Source: CRAN
+Version: 1.0-6
+Hash: 1f55cdac387721d4eda1126ac9aba73b
 
 Package: openssl
 Source: CRAN
@@ -257,6 +294,12 @@ Source: CRAN
 Version: 1.8.4
 Requires: Rcpp
 Hash: 8fbaff6962e3421b5c9652eebae36159
+
+Package: profvis
+Source: CRAN
+Version: 0.3.3
+Requires: htmlwidgets, stringr
+Hash: 41076859eb76a7514acc5ef9ca73949c
 
 Package: psych
 Source: CRAN
@@ -316,6 +359,12 @@ Source: CRAN
 Version: 1.2
 Requires: backports
 Hash: fdcac51a7f47decd60556ceefc3c26b1
+
+Package: rtdists
+Source: CRAN
+Version: 0.7-3
+Requires: Rcpp, evd, gsl, msm
+Hash: e9aba79dc1efee3014b358276920becd
 
 Package: runjags
 Source: CRAN
