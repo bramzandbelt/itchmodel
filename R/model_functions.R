@@ -49,52 +49,52 @@ compute_drift_rate <- function(parameters, stimuli, parameterization = "", frame
                                  variable = 'dp'))
 }
 
-#' #'
-#' #'
-#' #'
-#' compute_drift_rate_transformation_diffs <- function(parameters, stimuli, parameterization = "", frame = "") {
-#'
-#'   x <- unlist(parameters)
-#'
-#'   tibble::tibble(variable = character(),
-#'                    value = double(),
-#'                    weighted = logical()) %>%
-#'     tibble::add_row(variable = 'du',
-#'                     value = compute_transformation_diffs(parameters = parameters,
-#'                                                          stimuli = stimuli,
-#'                                                          parameterization = parameterization,
-#'                                                          frame = frame,
-#'                                                          variable = 'du'),
-#'                     weighted = FALSE) %>%
-#'     tibble::add_row(variable = 'dp',
-#'                     value = compute_transformation_diffs(parameters = parameters,
-#'                                                          stimuli = stimuli,
-#'                                                          parameterization = parameterization,
-#'                                                          frame = frame,
-#'                                                          variable = 'dp'),
-#'                     weighted = FALSE) %>%
-#'     tibble::add_row(variable = 'du',
-#'                     value = unname(x['w']) *
-#'                       compute_transformation_diffs(parameters = parameters,
-#'                                                    stimuli = stimuli,
-#'                                                    parameterization = parameterization,
-#'                                                    frame = frame,
-#'                                                    variable = 'du'),
-#'                     weighted = TRUE) %>%
-#'     tibble::add_row(variable = 'dp',
-#'                     value = (1 - unname(x['w'])) *
-#'                       compute_transformation_diffs(parameters = parameters,
-#'                                                    stimuli = stimuli,
-#'                                                    parameterization = parameterization,
-#'                                                    frame = frame,
-#'                                                    variable = 'dp'),
-#'                     weighted = TRUE) %>%
-#'     dplyr::mutate(variable = factor(variable, levels = c('du', 'dp')),
-#'                   weighted = factor(weighted, levels = c('FALSE', 'TRUE'))
-#'                   )
 #'
 #'
-#' }
+#' @export
+compute_drift_rate_transformation_diffs <- function(parameters, stimuli, parameterization = "", frame = "") {
+
+  x <- unlist(parameters)
+
+  tibble::tibble(variable = character(),
+                   value = double(),
+                   weighted = logical()) %>%
+    tibble::add_row(variable = 'du',
+                    value = compute_transformation_diffs(parameters = parameters,
+                                                         stimuli = stimuli,
+                                                         parameterization = parameterization,
+                                                         frame = frame,
+                                                         variable = 'du'),
+                    weighted = FALSE) %>%
+    tibble::add_row(variable = 'dp',
+                    value = compute_transformation_diffs(parameters = parameters,
+                                                         stimuli = stimuli,
+                                                         parameterization = parameterization,
+                                                         frame = frame,
+                                                         variable = 'dp'),
+                    weighted = FALSE) %>%
+    tibble::add_row(variable = 'du',
+                    value = unname(x['w']) *
+                      compute_transformation_diffs(parameters = parameters,
+                                                   stimuli = stimuli,
+                                                   parameterization = parameterization,
+                                                   frame = frame,
+                                                   variable = 'du'),
+                    weighted = TRUE) %>%
+    tibble::add_row(variable = 'dp',
+                    value = (1 - unname(x['w'])) *
+                      compute_transformation_diffs(parameters = parameters,
+                                                   stimuli = stimuli,
+                                                   parameterization = parameterization,
+                                                   frame = frame,
+                                                   variable = 'dp'),
+                    weighted = TRUE) %>%
+    dplyr::mutate(variable = factor(variable, levels = c('du', 'dp')),
+                  weighted = factor(weighted, levels = c('FALSE', 'TRUE'))
+                  )
+
+
+}
 
 
 ## compute_transformation_diffs ################################################
@@ -172,7 +172,7 @@ compute_transformation <- function(q, parameters, variable, frame = "") {
 
     } else {
 
-      NA
+      unname(convert(q, type = 'power', param = c(x['alpha'], x['mu'])))
 
     }
 
@@ -188,6 +188,9 @@ compute_transformation <- function(q, parameters, variable, frame = "") {
 
       unname(convert(q, type = 'power', param = c(x['alpha'], x['mu'])))
 
+    } else {
+
+      unname(convert(q, type = 'power', param = c(x['alpha'], x['mu'])))
     }
   } else if (variable %in% c('p', 'p_ss', 'p_ll')) {
 
@@ -232,13 +235,37 @@ convert <- function(q, type = 'power', param) {
 #'
 #' Note that this gives same results as rtdists::rdiffusion with identical parameters (but note that the latter has bound separation parameter a, which equals 2 * threshold in Dai & Busemeyer equation)
 #'
+#' The following should get the same output:
+#' a <- runif(n = 1, min = 0.5, max = 2) # threshold separation
+#' v <- runif(n = 1, min = -5, max = 5) # drift rate
+#' s <- 1 # diffusion constant
+#' t0 <- runif(n = 1, min = 0, max = 2) # nondecision time
+#' itchmodel::db_bin_choice_prob(d = v, s = s, a = a, z = 0)
+#'
+#' rtdists::pdiffusion(rt = Inf, response = "upper", a = a, v = v, t0 = t0, s = s, z = 0.5*a)
+#'
 #' @export
 db_bin_choice_prob <- function(d, s, a, z) {
 
-  theta <- 2 * a
+  theta <- a / 2
 
-  (1 - exp(-2 * d * (theta + z) / s^2)) /
-    (1 - exp(-4 * d * theta / s^2))
+  if (dplyr::near(d,0, tol = 1e-9)) {
+    d <- d + 1e-9
+  }
+
+  # Dividing infinite numbers results in NaNs; make negative drift rates smaller to prevent this
+  if (-2 * d * (theta + z) / s^2 > log(.Machine$double.xmax) |
+      -4 * d * theta / s^2 > log(.Machine$double.xmax)) {
+    d <-
+      max(c((log(.Machine$double.xmax) * s^2) / (-2 * (theta + z)),
+          (log(.Machine$double.xmax) * s^2) / (-4 * theta)))
+  }
+
+  numerator <- (1 - exp(-2 * d * (theta + z) / s^2))
+  denominator <- (1 - exp(-4 * d * theta / s^2))
+
+  numerator / denominator
+
 }
 ## eq_list_elements ############################################################
 #' Ensure that list elemens are equal across conditions
@@ -297,15 +324,30 @@ fit_model <- function(data,
   assertthat::assert_that(is.double(uppers), msg = "uppers should be a double-precision vector")
 
   # 2. Use Differential Evolution to optimize model parameters =================
+
+  # optim_out <-
+  #   DEoptim::DEoptim(fn = itchmodel::get_log_likelihood, # optimization function
+  #                    lower = lowers,
+  #                    upper = uppers,
+  #                    data = data,
+  #                    model = model,
+  #                    parameterization = parameterization,
+  #                    control = control
+  #                    )
+
+  # Nonlinear Constrained and Unconstrained Optimization via Differential Evolution
   optim_out <-
-    DEoptim::DEoptim(fn = itchmodel::get_log_likelihood, # optimization function
+  DEoptimR::JDEoptim(fn = itchmodel::get_log_likelihood, # optimization function
                      lower = lowers,
                      upper = uppers,
+                     constr = get_nonlinear_constraints(data = data,
+                                                        model = model,
+                                                        parameterization = parameterization),
                      data = data,
                      model = model,
                      parameterization = parameterization,
                      control = control
-                     )
+  )
 
   # Add model and parameterization to output
   attributes(optim_out)$model = model
@@ -371,12 +413,12 @@ get_frames <- function(parameterization) {
 
   # 1. Assert that inputs meet expectations ====================================
   assertthat::assert_that(parameterization %in% c("one_condition",
-                                                  "date_delay_value_sensitivity",
+                                                  "date_delay_value_scaling",
                                                   "defer_speedup_value_scaling",
                                                   "date_delay_time_scaling",
                                                   "defer_speedup_time_scaling"
   ),
-  msg = "Specify parameterization as \n\"one-condition\" (i.e., estimate parameters from a single experimental condition), \n\"date_delay_value_sensitivity\" (i.e., estimate free value function sensitivity parameter across two experimental conditions), \n\"date_delay_time_scaling\" (i.e., estimate free time function sensitivity parameter across two experimental conditions), \n\"defer_speedup_value_scaling\" (i.e., estimate free value function scaling parameter across two experimental conditions), or \n\"defer_speedup_time_scaling\" (i.e., estimate free time function scaling parameter  across two experimental conditions)."
+  msg = "Specify parameterization as \n\"one-condition\" (i.e., estimate parameters from a single experimental condition), \n\"date_delay_value_scaling\" (i.e., estimate free value function scaling parameter across two experimental conditions), \n\"date_delay_time_scaling\" (i.e., estimate free time function sensitivity parameter across two experimental conditions), \n\"defer_speedup_value_scaling\" (i.e., estimate free value function scaling parameter across two experimental conditions), or \n\"defer_speedup_time_scaling\" (i.e., estimate free time function scaling parameter  across two experimental conditions)."
   )
 
   # 2. Return frames ===========================================================
@@ -390,6 +432,40 @@ get_frames <- function(parameterization) {
     NA
   }
 }
+
+## get_log_likelihood  #########################################################
+#' Get the log-likelihood of the parameters, given the data
+#'
+#' This function is a wrapper around ll_diffusion.
+#'
+#' @param x parameters
+#' @inheritParams fit_model
+#' @export
+get_log_likelihood = function(x, data, model = "DDM", parameterization = "") {
+
+  print("Hey there, this is get_log_likelihood")
+
+  # 1. Get parameter values ==================================================
+  params <- get_par_values(x, model = model, parameterization = parameterization)
+
+  # 2. Return negative log-likelihood for function minimization ================
+  ll <- 0
+
+  for (i_cond in 1:length(params)) {
+    ll <-
+      ll +
+      ll_diffusion(x = params[[i_cond]],
+                   stimuli = data$stimuli[[i_cond]],
+                   frame = data$frame[[i_cond]],
+                   observations = data$observations[[i_cond]])
+  }
+
+  ll
+
+}
+
+
+
 
 ## get_m_ss_estimates ##########################################################
 #' Based on response data from an indifference point procedure, estimate values for m_ss that will more or less in P(choose LL) equal to p
@@ -442,68 +518,6 @@ get_m_ss_estimates <- function(data, p) {
   nested_data %>% dplyr::select(t_ll, p, m_ss) %>% tidyr::unnest()
 }
 
-## get_log_likelihood  #########################################################
-#' Get the log-likelihood of the parameters, given the data
-#'
-#' This function is a wrapper around ll_diffusion.
-#'
-#' @param x parameters
-#' @inheritParams fit_model
-#' @export
-get_log_likelihood = function(x, data, model = "DDM", parameterization = "") {
-
-  # 1. Get parameter values ==================================================
-  params <- get_par_values(x, model = model, parameterization = parameterization)
-
-  # 2. Return negative log-likelihood for function minimization ================
-  ll <- 0
-
-  for (i_cond in 1:length(params)) {
-    ll <-
-      ll +
-      ll_diffusion(x = params[[i_cond]],
-                   stimuli = data$stimuli[[i_cond]],
-                   frame = data$frame[[i_cond]],
-                   observations = data$observations[[i_cond]])
-  }
-
-  ll
-
-  # if (parameterization == "one_condition") {
-  #   ll_diffusion(x = params,
-  #                stimuli = data$stimuli[[1]],
-  #                frame = data$frame[[1]],
-  #                observations = data$observations[[1]])
-  # } else if (parameterization %in% c("date_delay_time_scaling", "date_delay_value_scaling")) {
-  #   ll_diffusion(x = params[[1]],
-  #                stimuli = data$stimuli[[1]],
-  #                frame = data$frame[[1]],
-  #                observations = data$observations[[1]]) +
-  #     ll_diffusion(x = params[[2]],
-  #                  stimuli = data$stimuli[[2]],
-  #                  frame = data$frame[[2]],
-  #                  observations = data$observations[[2]])
-  # } else if (parameterization %in% c("defer_speedup_time_scaling", "defer_speedup_value_scaling")) {
-  #   ll_diffusion(x = params[[1]],
-  #                stimuli = data$stimuli[[1]],
-  #                frame = data$frame[[1]],
-  #                observations = data$observations[[1]]) +
-  #     ll_diffusion(x = params[[2]],
-  #                  stimuli = data$stimuli[[2]],
-  #                  frame = data$frame[[2]],
-  #                  observations = data$observations[[2]]) +
-  #     ll_diffusion(x = params[[3]],
-  #                  stimuli = data$stimuli[[3]],
-  #                  frame = data$frame[[3]],
-  #                  observations = data$observations[[3]])
-  #
-  # } else
-  #   NA
-
-}
-
-
-
 ## get_par_names ###############################################################
 #' Get parameter names, given a model and parameterization
 #'
@@ -519,13 +533,13 @@ get_par_names = function(model = "DDM", parameterization = "") {
 
            # 1.2. Date/delay effect - changes in time scaling (kappa) ----------
            # - delay framing: kappa = 1
-           # - date framing: kappa = kappa_contraction < 1
+           # - date framing: kappa = kappa_loss < 1
 
            date_delay_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "w", "a", "t0"),
 
            # 1.3. Date/delay effect - changes in value scaling (mu) ------------
            # - delay framing: mu = 1
-           # - date framing: mu = mu_boost > 1
+           # - date framing: mu = mu_gain > 1
 
            date_delay_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "a", "t0"),
 
@@ -567,46 +581,56 @@ get_n_free_param = function(model = "DDM", parameterization = "") {
   sum(!(l == u))
 }
 
-## get_par_names ###############################################################
-#' Get parameter names, given a model and parameterization
-#'
-#' @inheritParams fit_model
+
+## get_nonlinear_constraints ###################################################
+#' Get nonlinear constraints
+#' @param x vector of parameters
+#' @param model
+#' @param parameterizationn model parameterization
 #' @export
-get_par_names = function(model = "DDM", parameterization = "") {
+get_nonlinear_constraints <- function(x, data, model = "DDM", parameterization = "") {
 
-  # 1. Get model parameter names ===============================================
-  list(DDM =
-         list(
-           # 1.1. One condition ------------------------------------------------
-           one_condition = c("alpha", "mu", "beta", "kappa", "w", "a", "t0"),
+  # 1. Get parameter values ====================================================
+  x_named <- get_par_values(x, model = model, parameterization = parameterization)
 
-           # 1.2. Date/delay effect - changes in time scaling (kappa) ----------
-           # - delay framing: kappa = 1
-           # - date framing: kappa = kappa_contraction < 1
+  # 2. Get frames ==============================================================
+  frames <- as.character(data$frame)
 
-           date_delay_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "w", "a", "t0"),
+  # 4. Formulate linear inequalities ===========================================
 
-           # 1.3. Date/delay effect - changes in value scaling (mu) ------------
-           # - delay framing: mu = 1
-           # - date framing: mu = mu_boost > 1
+  lineq <- double()
 
-           date_delay_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "a", "t0"),
+  # 4.1. The costs of waiting cannot be greater than the benefits associated with the large reward:
+  # (1 - w) * (p_ll - p_ss) - w * u_ll <= 0
+  for (i_frame in length(frames)) {
 
-           # 1.4. Defer/speedup effect - changes in time scaling (kappa) -------
-           # - neutral framing: kappa = 1
-           # - defer framing: kappa > 1 (over-responsive to deferrals)
-           # - speedup framing: kappa < 1 (under-responsive to speedups)
+    frame <- frames[i_frame]
+    params <- unlist(x_named[i_frame])
+    stimuli <- data$stimuli[data$frame == frame][[1]]
 
-           defer_speedup_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "kappa3", "w", "a", "t0"),
+    lineq <- c(lineq,
+               (1 - params['w']) *
+                 (compute_transformation(q = stimuli$t_l,
+                                         parameters = params,
+                                         variable = 'p_ll',
+                                         frame = frame) -
+                    compute_transformation(q = stimuli$t_s,
+                                           parameters = params,
+                                           variable = 'p_ss',
+                                           frame = frame)) -
+                 params['w'] *
+                 compute_transformation(q = stimuli$m_l,
+                                        parameters = params,
+                                        variable = 'u_ll',
+                                        frame = frame)
+               )
 
-           # 1.5. Defer/speedup effect - changes in value scaling (mu) ---------
-           # - neutral framing:
-           # - defer framing:
-           # - speedup framing:
 
-           defer_speedup_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "a", "t0")
-           )
-       )[[model]][[parameterization]]
+
+  }
+
+  # Output
+  unname(lineq)
 
 }
 
@@ -628,13 +652,12 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
 
   lowers = list('alpha' = .01, # DB_JEPG_2014
                 'mu' = 1, # SR_JEPLMC_2013
-                'mu_boost' = 1,
+                'mu_gain' = 1,
                 'mu_loss' = 1, # SR_JEPLMC_2013
                 'beta' = .01, # DB_JEPG_2014
                 'kappa' = 1, # SR_JEPLMC_2013
-                'kappa_contraction' = 0,
-                'kappa_loss' = 1,
                 'kappa_gain' = 0,
+                'kappa_loss' = 1,
                 'w' = 0.05, # DB_JEPG_2014
                 "a" = 0.5, # rtdists
                 "t0" = 0.05 # rtdists
@@ -642,13 +665,12 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
 
   uppers = list('alpha' = 2, # DB_JEPG_2014
                 'mu' = 1, #
-                'mu_boost' = 3,
+                'mu_gain' = 3,
                 'mu_loss' = 3, # SR_JEPLMC_2013
                 'beta' = 2, # DB_JEPG_2014
                 'kappa' = 1, # SR_JEPLMC_2013
-                'kappa_contraction' = 1, # guess
-                'kappa_loss' = 3, # guess
                 'kappa_gain' = 1,
+                'kappa_loss' = 3, # guess
                 'w' = 0.95, # DB_JEPG_2014
                 "a" = 2, # rtdists
                 "t0" = 3 # DB_JEPG_2014 (data in Table 10)
@@ -671,20 +693,20 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
 
                 # 1.1. Changes in time scaling (kappa) -------------------------
                 # - delay framing: kappa = 1
-                # - date framing: kappa = kappa_contraction < 1
+                # - date framing: kappa = kappa_loss < 1
 
                 date_delay_time_scaling =
-                  list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'], l['kappa_contraction'], l['w'], l['a'], l['t0']),
-                       upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'], u['kappa_contraction'], u['w'], u['a'], u['t0'])
+                  list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'], l['kappa_loss'], l['w'], l['a'], l['t0']),
+                       upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'], u['kappa_loss'], u['w'], u['a'], u['t0'])
                   ),
 
                 # 1.2. Changes in value scaling (mu) ---------------------------
                 # - delay framing: mu = 1
-                # - date framing: mu = mu_boost > 1
+                # - date framing: mu = mu_gain > 1
 
                 date_delay_value_scaling =
-                  list(lower = c(l['alpha'], l['mu'], l['mu_boost'], l['beta'], l['kappa'], l['w'], l['a'], l['t0']),
-                       upper = c(u['alpha'], u['mu'], u['mu_boost'], u['beta'], u['kappa'], u['w'], u['a'], u['t0'])
+                  list(lower = c(l['alpha'], l['mu'], l['mu_gain'], l['beta'], l['kappa'], l['w'], l['a'], l['t0']),
+                       upper = c(u['alpha'], u['mu'], u['mu_gain'], u['beta'], u['kappa'], u['w'], u['a'], u['t0'])
                   ),
 
                 # 2. Defer-speedup effect ======================================
@@ -712,6 +734,136 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
          )[[model]][[parameterization]][[bound]]
     )
 }
+
+get_par_pop_stats <- function(model = "DDM", parameterization = "", descstat = "mean") {
+
+  means = list('alpha' = 0.94, # Source: DB_2014 (Table 10, Expt. 3)
+                'mu' = 1, # # Guesstimate
+                'mu_gain' = 1.2, # Guesstimate
+                'mu_loss' = 1.2, # Guesstimate
+                'beta' = 0.75, # DB_JEPG_2014
+                'kappa' = 1, # Guesstimate
+                'kappa_gain' = 1 / 1.2, # Guesstimate
+                'kappa_loss' = 1.2, # Guesstimate
+                'w' = 0.48, # Source: DB_2014 (Table 10, Expt. 3)
+                "a" = 1.94 / 2, # Source: DB_2014 (Table 10, Expt. 3, a = theta_star / 2)
+                "t0" = 1.23 # # Source: DB_2014 (Table 10, Expt. 3)
+               )
+
+  sds = list('alpha' = 0.64, # Source: DB_2014 (Table 10, Expt. 3)
+             'mu' = 1e-6, # # Guesstimate; must be bigger than zero (as diagonals of covariance matrix need to be positive)
+             'mu_gain' = 0.1, # Guesstimate
+             'mu_loss' = 0.1, # Guesstimate
+             'beta' = 0.65, # DB_JEPG_2014
+             'kappa' = 1e-6, # Guesstimate; must be bigger than zero (as diagonals of covariance matrix need to be positive)
+             'kappa_gain' = 1 / 1.2, # Guesstimate
+             'kappa_loss' = 1.2, # Guesstimate
+             'w' = 0.18, # Source: DB_2014 (Table 10, Expt. 3)
+             "a" = 0.61, # Source: DB_2014 (Table 10, Expt. 3, a = theta_star / 2)
+             "t0" = 0.14 # # Source: DB_2014 (Table 10, Expt. 3)
+  )
+
+  M <- unlist(means)
+  S <- unlist(sds)
+
+  get_correlation_mat <- function(names) {
+
+  one <- 1
+  mkp <- 0.10   # Positive correlation of parameters with mu and kappa
+  mkn <- -0.10  # Negtaive correlation of parameters with mu and kappa
+  mkw <- 0.85   # Positive correlation within mu-kappa
+  alb <- 0.85   # Alpha-beta
+  alw <- 0.25   # Alpha-w
+  ala <- -0.15  # Alpha-a
+  alt <- 0.29   # Alpha-t0
+  b_w <- 0.26   # Beta-w
+  b_a <- -0.15  # Beta-a
+  b_t <- 0.23   # Beta-t0
+  w_a <- -0.15  # w-a
+  w_t <- 0.04   # w-t0
+  a_t <- 0.04   # a-t0
+
+
+    mat <-
+      tibble::frame_matrix(
+        ~alpha, ~mu,  ~mu_gain, ~mu_loss, ~beta, ~kappa, ~kappa_gain, ~kappa_loss, ~w,   ~a,    ~t0,
+        one,    mkp,  mkp,      mkp,      alb,   mkp,    mkp,         mkp,         alw,  ala,   alt,
+        mkp,    one,  mkw,      mkw,      mkp,   mkw,    mkw,         mkw,         mkp,  mkn,   mkp,
+        mkp,    mkw,  one,      mkw,      mkp,   mkw,    mkw,         mkw,         mkp,  mkn,   mkp,
+        mkp,    mkw,  mkw,      one,      mkp,   mkw,    mkw,         mkw,         mkp,  mkn,   mkp,
+        alb,    mkp,  mkp,      mkp,      one,   mkp,    mkp,         mkp,         b_w,  b_a,   b_t,
+        mkp,    mkw,  mkw,      mkw,      mkp,   one,    mkw,         mkw,         mkp,  mkn,   mkp,
+        mkp,    mkw,  mkw,      mkw,      mkp,   mkw,    one,         mkw,         mkp,  mkn,   mkp,
+        mkp,    mkw,  mkw,      mkw,      mkp,   mkw,    mkw,         one,         mkp,  mkn,   mkp,
+        alw,    mkp,  mkp,      mkp,      b_w,   mkp,    mkp,         mkp,         one,  w_a,   w_t,
+        ala,    mkn,  mkn,      mkn,      b_a,   mkn,    mkn,         mkn,         w_a,  one,   a_t,
+        alt,    mkp,  mkp,      mkp,      b_t,   mkp,    mkp,         mkp,         w_t,  a_t,   one
+      )
+
+    selection <- colnames(mat) %in% names
+    mat[selection, selection]
+  }
+
+
+  unname(
+    list(DDM =
+           list(one_condition =
+                  list(mean = c(M['alpha'], M['mu'], M['beta'], M['kappa'], M['w'], M['a'], M['t0']),
+                       sd = c(S['alpha'], S['mu'], S['beta'], S['kappa'], S['w'], S['a'], S['t0']),
+                       correlation = get_correlation_mat(names = c('alpha', 'mu', 'beta', 'kappa', 'w', 'a', 't0'))
+                  ),
+
+                # 1. Date-delay effect =========================================
+
+                # 1.1. Changes in time scaling (kappa) -------------------------
+                # - delay framing: kappa = 1
+                # - date framing: kappa = kappa_loss < 1
+
+                date_delay_time_scaling =
+                  list(mean = c(M['alpha'], M['mu'], M['beta'], M['kappa'], M['kappa_loss'], M['w'], M['a'], M['t0']),
+                       sd = c(S['alpha'], S['mu'], S['beta'], S['kappa'], S['kappa_loss'], S['w'], S['a'], S['t0']),
+                       correlation = get_correlation_mat(names = c('alpha', 'mu', 'beta', 'kappa', 'kappa_loss', 'w', 'a', 't0'))
+                  ),
+
+                # 1.2. Changes in value scaling (mu) ---------------------------
+                # - delay framing: mu = 1
+                # - date framing: mu = mu_gain > 1
+
+                date_delay_value_scaling =
+                  list(mean = c(M['alpha'], M['mu'], M['mu_gain'], M['beta'], M['kappa'], M['w'], M['a'], M['t0']),
+                       sd = c(S['alpha'], S['mu'], S['mu_gain'], S['beta'], S['kappa'], S['w'], S['a'], S['t0']),
+                       correlation = get_correlation_mat(names = c('alpha', 'mu', 'mu_gain', 'beta', 'kappa', 'w', 'a', 't0'))
+                  ),
+
+                # 2. Defer-speedup effect ======================================
+
+                # 2.1. Changes in time scaling (kappa) -------------------------
+                # - neutral framing: kappa = 1
+                # - defer framing: kappa > 1 (over-responsive to deferrals)
+                # - speedup framing: kappa < 1 (under-responsive to speedups)
+
+                defer_speedup_time_scaling =
+                  list(mean = c(M['alpha'], M['mu'], M['beta'], M['kappa'], M['kappa_loss'], M['kappa_gain'], M['w'], M['a'], M['t0']),
+                       sd = c(S['alpha'], S['mu'], S['beta'], S['kappa'], S['kappa_loss'], S['kappa_gain'], S['w'], S['a'], S['t0']),
+                       correlation = get_correlation_mat(names = c('alpha', 'mu', 'beta', 'kappa', 'kappa_loss', 'kappa_gain', 'w', 'a', 't0'))
+                  ),
+
+                # 2.2. Changes in value scaling (mu) ---------------------------
+                # - neutral framing:
+                # - defer framing:
+                # - speedup framing:
+
+                defer_speedup_value_scaling =
+                  list(mean = c(M['alpha'], M['mu'], M['mu_loss'], M['beta'], M['kappa'], M['w'], M['a'], M['t0']),
+                       sd = c(S['alpha'], S['mu'], S['mu_loss'], S['beta'], S['kappa'], S['w'], S['a'], S['t0']),
+                       correlation = get_correlation_mat(names = c('alpha', 'mu', 'mu_loss', 'beta', 'kappa', 'w', 'a', 't0'))
+                  )
+           )
+    )[[model]][[parameterization]][[descstat]]
+  )
+}
+
+
 
 
 ## get_par_values  #############################################################
@@ -743,7 +895,7 @@ get_par_values = function(x, model = "DDM", parameterization = "") {
     # delay frame: kappa = 1
     params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["a"], x["t0"])
 
-    # date frame: kappa = kappa_contraction < 1
+    # date frame: kappa = kappa_loss < 1
     params[[2]] = c(x["alpha"], x["mu"], x["beta"], x["kappa2"], x["w"], x["a"], x["t0"])
 
     names(params[[1]]) = names(params[[2]]) = parameter_names
@@ -755,7 +907,7 @@ get_par_values = function(x, model = "DDM", parameterization = "") {
     # delay frame: mu = 1
     params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
 
-    # date frame: mu = mu_boost > 1
+    # date frame: mu = mu_gain > 1
     params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
     names(params[[1]]) = names(params[[2]]) = parameter_names
 
@@ -842,6 +994,8 @@ itch_ddm <- function(stimuli, parameters, parameterization = "", frame = "", n =
 #' @export
 ll_diffusion <- function(x, stimuli, frame = "", observations) {
 
+  print('Hey there')
+
   # 1. Unlist parameters =======================================================
   x <- unlist(x)
 
@@ -851,15 +1005,24 @@ ll_diffusion <- function(x, stimuli, frame = "", observations) {
 
   # 3. Compute densities =======================================================
   # Compute densities
+
   densities <-
-    purrr::pmap_dbl(list(rt = observations$rt,
-                         response = observations$response,
-                         v = v
-                         ),
-                    .f = tryCatch(rtdists::ddiffusion, error = function(e) 0),
-                    a = x['a'],
-                    t0 = x['t0']
-                    )
+    tryCatch(rtdists::ddiffusion(rt = observations$rt,
+                                 response = observations$response,
+                                 v = v,
+                                 a = x['a'],
+                                 t0 = x['t0']),
+             error = function(e) 0)
+
+  # densities <-
+  #   purrr::pmap_dbl(list(rt = observations$rt,
+  #                        response = observations$response,
+  #                        v = v
+  #                        ),
+  #                   .f = tryCatch(rtdists::ddiffusion, error = function(e) 0),
+  #                   a = x['a'],
+  #                   t0 = x['t0']
+  #                   )
 
   if (any(densities == 0)) return(1e6)
   return(-sum(log(densities)))
@@ -884,7 +1047,7 @@ logistic <- function(x) {
 #' @param interval double vector of intervals between sooner and later option (in days), defaults to c(0)
 #' @param n_reps number of repetitions of each combination of parameters
 #' @return The output is a tibble with columns
-make_stimulus_df <- function(frames = c('delay', 'date'),
+make_stimulus_df <- function(frames = "neutral",
                              m_l = c(20),
                              pct_m_l = c(0.2, 0.5, 0.7, 0.8, 0.88, 0.93, 0.97, 0.99),
                              t_s = c(0),
@@ -895,6 +1058,8 @@ make_stimulus_df <- function(frames = c('delay', 'date'),
     factor_levels <- c('delay','date')
   } else if (all(c('neutral', 'defer', 'speedup') %in% frames)) {
     factor_levels <- c('neutral', 'defer', 'speedup')
+  } else { # e.g. for indifference point procedure
+    factor_levels <- 'neutral'
   }
 
   expand.grid(frame = factor(frames, levels = factor_levels),
@@ -921,12 +1086,12 @@ nest_join_stimuli_parameters <- function(stimuli = make_stimulus_df(),
 
   # Assertions -----------------------------------------------------------------
   assertthat::assert_that(parameterization %in% c("one_condition",
-                                                  "date_delay_value_sensitivity",
+                                                  "date_delay_value_scaling",
                                                   "defer_speedup_value_scaling",
                                                   "date_delay_time_scaling",
                                                   "defer_speedup_time_scaling"
   ),
-  msg = "Specify parameterization as \n\"one-condition\" (i.e., estimate parameters from a single experimental condition), \n\"date_delay_value_sensitivity\" (i.e., estimate free value function sensitivity parameter across two experimental conditions), \n\"date_delay_time_scaling\" (i.e., estimate free time function sensitivity parameter across two experimental conditions), \n\"defer_speedup_value_scaling\" (i.e., estimate free value function scaling parameter across two experimental conditions), or \n\"defer_speedup_time_scaling\" (i.e., estimate free time function scaling parameter  across two experimental conditions)."
+  msg = "Specify parameterization as \n\"one-condition\" (i.e., estimate parameters from a single experimental condition), \n\"date_delay_value_scaling\" (i.e., estimate free value function scaling parameter across two experimental conditions), \n\"date_delay_time_scaling\" (i.e., estimate free time function sensitivity parameter across two experimental conditions), \n\"defer_speedup_value_scaling\" (i.e., estimate free value function scaling parameter across two experimental conditions), or \n\"defer_speedup_time_scaling\" (i.e., estimate free time function scaling parameter  across two experimental conditions)."
   )
 
   # Repeat parameters, if stationary across conditions -------------------------
@@ -949,16 +1114,139 @@ nest_join_stimuli_parameters <- function(stimuli = make_stimulus_df(),
   # Nested parameters ----------------------------------------------------------
   nested_parameters <-
     parameters %>%
-    tibble::as.tibble() %>%
+    get_par_values(x = ., model = "DDM", parameterization = parameterization) %>%
+    dplyr::bind_rows() %>%
     dplyr::mutate(frame = factor(levels(stimuli$frame),
                                  levels = levels(stimuli$frame))) %>%
     dplyr::select(frame, dplyr::everything()) %>%
     dplyr::group_by(frame) %>%
     tidyr::nest(.key = 'parameters')
 
+  # This is the old code:
+  # nested_parameters <-
+  #   parameters %>%
+  #   tibble::as.tibble() %>%
+  #   dplyr::mutate(frame = factor(levels(stimuli$frame),
+  #                                levels = levels(stimuli$frame))) %>%
+  #   dplyr::select(frame, dplyr::everything()) %>%
+  #   dplyr::group_by(frame) %>%
+  #   tidyr::nest(.key = 'parameters')
+
+
   # Join nested stimuli and parameters -----------------------------------------
   nested_stimuli %>%
     dplyr::left_join(nested_parameters, by = "frame")
+
+}
+
+## sample_params_from_pop ######################################################
+#' Sample model parameters from population
+#'
+#' @export
+sample_params_from_pop <- function(n, model = "DDM", parameterization = "", stimuli) {
+
+  # Get parameter population means, standard deviations, and correlations ------
+  M <- get_par_pop_stats(model = model,
+                         parameterization = parameterization,
+                         descstat = "mean")
+  S <- get_par_pop_stats(model = model,
+                         parameterization = parameterization,
+                         descstat = "sd")
+  correlation_mat <- get_par_pop_stats(model = model,
+                                       parameterization = parameterization,
+                                       descstat = "correlation")
+
+
+  # Parameter covariance matrix ------------------------------------------------
+  stdev_ij <- S %*% t(S)
+  cov_mat <- correlation_mat * stdev_ij
+
+  # Sample parameters from truncated multivariate normal -----------------------
+  # constrained by lower and upper bounds + linear inequalities
+
+  iter <- 1
+  params <- double()
+
+  par_names <-
+    itchmodel::get_par_names(model = model,
+                             parameterization = parameterization)
+
+  print(sprintf("Parameterization: %s", parameterization))
+
+  while (iter <= 50) {
+
+    # Sample parameters with bound constraints
+    params <-
+      rbind(params,
+            tmvtnorm::rtmvnorm2(n = n,
+                                mean = M,
+                                sigma = cov_mat,
+                                lower = get_par_bounds(model = model,
+                                                       parameterization = parameterization,
+                                                       bound = "lower"),
+                                upper = get_par_bounds(model = model,
+                                                       parameterization = parameterization,
+                                                       bound = "upper") + 1e-6,
+                                )
+            )
+
+    # Check linear inequalities
+    params_list <-
+      purrr::array_branch(array = params,
+                          margin = 1)
+
+    nested_stimuli <-
+      stimuli %>%
+      dplyr::group_by(frame) %>%
+      tidyr::nest() %>%
+      dplyr::rename(stimuli = data)
+
+    lineqs <-
+      purrr::pmap_dbl(.l = list(x = params_list),
+                      .f = get_nonlinear_constraints,
+                      data = nested_stimuli,
+                      model = model,
+                      parameterization = parameterization
+      )
+
+    # Only retain parameter samples that meet linear inequality constraints
+    params <- params[lineqs <= 0,]
+
+
+    # Add column names
+    params <- matrix(params, ncol = length(par_names))
+    colnames(params) <- par_names
+
+    if (nrow(params) >= n) {
+
+      params <- params[1:n,]
+      print(sprintf('Iteration %d: Sampled %d out of %d valid parameter sets', iter, nrow(params), n))
+      break
+
+    } else {
+      print(sprintf('Iteration %d: Sampled %d out of %d valid parameter sets', iter, nrow(params), n))
+      iter <- iter + 1
+
+    }
+
+  }
+
+  # Add column names
+  params <- matrix(params, ncol = length(par_names))
+  colnames(params) <- par_names
+
+  assertthat::assert_that(nrow(params) >= n,
+                          msg = "Algorithm failed to sampled enough valid parameter sets. Consider adjusting settings.")
+
+  # Add index & parameterization column and return
+  params <-
+    params %>%
+    tibble::as.tibble() %>%
+    dplyr::mutate(ix = 1:n())
+
+  params %>%
+    dplyr::group_by(ix) %>%
+    tidyr::nest()
 
 }
 
@@ -986,11 +1274,6 @@ sim_data <- function(stimuli = make_stimulus_df(),
                                              sim_fun = sim_fun),
                   model = parameterization
     )
-    # dplyr::mutate(observations = purrr::map2(.x = stimuli,
-    #                                          .y = parameters,
-    #                                          .f = itchmodel::itch_ddm),
-    #               model = parameterization
-    #               )
 
 }
 
