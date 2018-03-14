@@ -1,3 +1,15 @@
+## tagify ######################################################################
+#' Creates a tag based on a underscore-separated string
+#'
+#' @param string Character vector
+#' @export
+tagify <- function(string) {
+  stringr::str_split(string, "_", simplify = TRUE)  %>%
+    purrr::map_chr(.x = ., .f = substr, 1, 1) %>%
+    paste0(collapse = "") %>%
+    toupper()
+}
+
 ## verify_output_dirs ##########################################################
 #' Checks if directories for outputs exists, and if not creates them
 #'
