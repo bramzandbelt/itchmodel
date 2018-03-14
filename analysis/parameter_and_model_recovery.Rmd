@@ -1,0 +1,495 @@
+---
+title: "Parameter and model recovery"
+author: "Bram B. Zandbelt"
+params:
+  n_repetition: 2
+  i_dataset: 1
+  parameterization: "defer_speedup_time_scaling"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+    df_print: paged
+bibliography: "/Users/bramzandbelt/surfdrive/projects/BEWITCHING/itchmodel/itchmodel.bib"
+biblio-style: authoryear
+---
+
+# Overview
+
+Steps:
+- Define some variables
+- Load the synthetic data
+- 
+
+# Preliminaries
+
+## Start from a well-defined state
+
+Set state for __random number generation__. This ensures that results can be reproduced.
+```{r Set state for random number generation}
+set.seed(19821101)
+```
+
+## Define some general variables
+
+Make `magrittr`'s __pipe__ accessible from notebook. Pipes enable clear expression of a sequence of multiple operations.
+```{r Provide access to pipe from magrittr }
+"%>%" <- magrittr::`%>%`
+```
+
+Identify the __project directory__. All paths in the code are relative to it.
+```{r Define project directory}
+project_dir <- rprojroot::find_root(rprojroot::has_file("DESCRIPTION"))
+```
+
+Define the __name of the notebook__ (`notebook_name`). It is used to save notebook output to a notebook-specific directory.
+```{r Define notebook name}
+notebook_name <- "parameter_and_model_recovery"
+```
+
+Define some output directories and verify their existence. Optimization statistics obtained in this notebook will be written to a notebook-specific directory inside `optimizations_dir`. If directories do not exist, they are created.
+```{r Define and verify existence of output directories}
+optimizations_dir <- file.path(project_dir,"data","optimizations")
+synthetic_data_dir <- file.path(project_dir,"data","simulations", "simulate_synthetic_data_for_parameter_and_model_recovery") 
+itchmodel::verify_output_dirs(base_dirs = list(optimizations_dir),
+                              notebook_name = notebook_name)
+```
+
+## Define some model variables
+
+The __name of the model__ (`model_name`). Currently, only drift diffusion models (DDM) are implemented.
+```{r Define model name}
+model_name <- "DDM"
+```
+
+Synthetic data were generated with four model parameterizations: the defer/speedup intertemporal choice data were generated with the `defer_speedup_time_scaling` and `defer_speedup_value_scaling` parameterizations; the date/delay intertemporal choice data were generated with the `date_delay_time_scaling` and `date_delay_value_scaling` parameterizations. We will fit each data with the parameterization that generated the synthetic data set (`generating_parameterization`) and a "counter-parameterization".
+
+```{r Retrieve parameterization}
+# parameterization is specified in the YAML header or in the params argument of rmarkdown::render
+(parameterization <- params$parameterization)
+```
+
+
+```{r Define model parameterizations}
+generating_parameterization <- parameterization
+
+if (parameterization == "defer_speedup_time_scaling") {
+  counter_parameterization <- "defer_speedup_value_scaling"
+} else if (parameterization == "defer_speedup_value_scaling") {
+  counter_parameterization <- "defer_speedup_time_scaling"
+} else if (parameterization == "date_delay_time_scaling") {
+  counter_parameterization <- "date_delay_value_scaling"
+} else if (parameterization == "date_delay_value_scaling") {
+  counter_parameterization <- "date_delay_time_scaling"
+}
+
+```
+
+Synthetic data were generated with four levels of repetition: each trial (i.e. a factorial combination of `frame`, `m_s`, `m_l`, `t_s`, and `t_l`) was repeated 2, 3, 4, or 5 times in the experiment (`n_repetition`). Here, we fit the dataset containing `n_repetition` repetitions.
+
+```{r Retrieve number of repetitions}
+# n_repetition is specified in the YAML header or in the params argument of rmarkdown::render
+(n_repetition <- params$n_repetition)
+```
+
+A total of 100 synthetic data sets were generated for each combination of model, parameterization, and number of repetitions. Here, we fit the dataset with index `i_dataset`.
+
+```{r Retrieve dataset index}
+# i_dataset is specified in the YAML header or in the params argument of rmarkdown::render
+(i_dataset <- params$i_dataset)
+```
+
+## Define some optimization variables
+
+The __maximum number of iterations__ (`max_iter`) of the optimization algorithm before it should terminate.
+```{r Set maximum number of iterations}
+max_iter <- 30
+```
+
+The relative tolerance (`rel_tol`) is the tolerance for the stopping criterion of the optimization algorithm.
+```{r Set telative tolerance}
+rel_tol <- 1e-6
+```
+
+The __number of populations per free parameter__ defined the number of candidate solutions in the randomly distributed initial population. Higher numbers increase the likelihood of converging to a global optimum.
+```{r Set number of populations per free parameters}
+n_pop_per_free_param <- 20
+```
+
+# Load data 
+
+## Load the synthetic data
+
+Define file name of __synthetic data__ file
+```{r Define file name of synthetic data file}
+fmt_data <- "expt_stimuli_observations_model_%s_parameterization_%s_ix_%d_nrep_%d.csv"
+(synthetic_data_file <- 
+  sprintf(fmt = fmt_data, 
+          model_name, 
+          generating_parameterization, 
+          i_dataset, 
+          n_repetition)
+  )
+```
+
+Load synthetic data file
+```{r Load synthetic data file}
+(synthetic_data <- 
+  readr::read_csv(file = file.path(synthetic_data_dir, synthetic_data_file),
+                  col_types = readr::cols()
+                  ))
+```
+
+Count the __number of data points__
+```{r Count the number of data points}
+(n_data_points <- nrow(synthetic_data))
+```
+
+Put synthetic data in correct format for model fitting
+```{r Put synthetic data in correct format for model fitting}
+synthetic_data_grpd <- 
+  synthetic_data %>%
+  dplyr::group_by(frame)
+
+stimuli <- 
+  synthetic_data_grpd %>%
+  dplyr::select(frame, m_s, t_s, m_l, t_l, m_ss_type) %>%
+  tidyr::nest()
+
+observations <- 
+  synthetic_data_grpd %>%
+  dplyr::select(frame, rt, response) %>%
+  tidyr::nest()
+
+(synthetic_data_formatted <- 
+dplyr::left_join(x = stimuli,
+                 y = observations,
+                 by = c("frame")
+                 ) %>%
+  dplyr::rename(stimuli = data.x,
+                observations = data.y))
+```
+
+## Load the data generating model parameter values
+
+Define the name of the file containing __data generating model parameter values__
+```{r Define the name of the file containing data generating model parameter values}
+fmt_params <- "model_parameters_model_%s_parameterization_%s_ix_%d.csv"
+(synthetic_params_file <- 
+  sprintf(fmt = fmt_params, 
+          model_name, 
+          generating_parameterization, 
+          i_dataset))
+```
+
+Load parameter file
+```{r Load parameter file}
+(generating_params <- 
+  readr::read_csv(file = file.path(synthetic_data_dir, synthetic_params_file),
+                  col_types = readr::cols()
+                  ))
+```
+
+_Parameter definitions_:  
+_alpha_: sensitivity parameter of the function transforming objective into subjective value  
+_mu_: scaling parameter of the function transforming objective into subjective value  
+_beta_: sensitivity parameter of the function transforming objective into subjective time  
+_kappa_: scaling parameter of the function transforming objective into subjective time  
+_w_: parameter that weighs and scale the differences in subjective value and time, before comparison  
+_a_: threshold separation of the diffusion process  
+_t0_: non-decision time  
+
+Indices following the parameter name indicate that the parameter varies across conditions.
+
+# Fit data generating model to the synthetic data
+The dataset will be fit with the `generating_parameterization`: `r generating_parameterization`.
+
+Define parameter __bounds__
+```{r Define parameter bounds of the generating_parameterization}
+lowers_gen <- itchmodel::get_par_bounds(model = model_name,
+                                        parameterization = generating_parameterization,
+                                        bound = 'lower')
+uppers_gen <- itchmodel::get_par_bounds(model = model_name,
+                                        parameterization = generating_parameterization,
+                                        bound = 'upper')
+
+```
+
+The __number of free parameters__ (`n_free_params`) can be determined by counting the number of parameters for which the lower and upper bounds are identical.
+```{r Determine the number of free parameters of the generating_parameterization}
+n_free_params_gen <- sum(!(lowers_gen == uppers_gen))
+```
+
+```{r Fit data generating model to synthetic data}
+optim_out_gen_model <- 
+  DEoptimR::JDEoptim(fn = itchmodel::get_log_likelihood, # optimization function
+                     lower = lowers_gen,
+                     upper = uppers_gen,
+                     constr = itchmodel::get_nonlinear_constraints,
+                     maxiter = max_iter,
+                     tol = rel_tol,
+                     NP = n_pop_per_free_param * n_free_params_gen,
+                     trace = TRUE,
+                     triter = 25, # Print every 25th iteration 
+                     # Additional arguments passed to fn and constr:
+                     data = synthetic_data_formatted,
+                     model = model_name,
+                     parameterization = generating_parameterization
+                   )
+```
+
+
+```{r Print the best-fitting parameters of the generating_parameterization model fit}
+(best_fit_gen_model <- 
+   itchmodel::params_to_tibble(optim_out_gen_model$par, 
+                               model = "DDM", 
+                               parameterization = generating_parameterization)
+ )
+```
+
+Print optimization procedure stats
+```{r Print optimization procedure stats of the generating_parameterization model fit}
+(optim_stats_gen_model <- 
+   itchmodel::get_fit_stats(optim_output = optim_out_gen_model, 
+                            model = model_name, 
+                            parameterization = generating_parameterization, 
+                            n_data_points = n_data_points)
+ )
+```
+
+Plot the observations and model predictions, using best-fitting parameters
+```{r Plot the observations and model predictions of the generating_parameterization, using best-fitting parameters}
+(plt_generating_parameterization <- 
+  itchmodel::plot_model_fit_to_data(df = synthetic_data_formatted,
+                                    params = optim_out_gen_model$par,
+                                    model = model_name,
+                                    parameterization = generating_parameterization
+                                    ))
+```
+Points represent observed probabilities of choosing large-but-later option. Lines represent best-fitting model predictions.
+
+# Fit counter parameterization to synthetic data
+The dataset will be fit with the `counter_parameterization`: `r counter_parameterization`.
+
+Parameter __lower bounds__ (`lowers`) and __upper bounds__ (`uppers`)
+```{r Define parameter bounds of the counter_parameterization}
+lowers_counter <- itchmodel::get_par_bounds(model = model_name,
+                                            parameterization = counter_parameterization,
+                                            bound = 'lower')
+uppers_counter <- itchmodel::get_par_bounds(model = model_name,
+                                            parameterization = counter_parameterization,
+                                            bound = 'upper')  
+```
+
+The __number of free parameters__ (`n_free_params`) can be determined by counting the number of parameters for which the lower and upper bounds are identical.
+```{r Determine the number of free parameters of the counter_parameterization}
+n_free_params_counter <- sum(!(lowers_counter == uppers_counter))
+```
+
+```{r Fit counter_parameterization model to synthetic data}
+optim_out_counter_model <- 
+  DEoptimR::JDEoptim(fn = itchmodel::get_log_likelihood, # optimization function
+                     lower = lowers_counter,
+                     upper = uppers_counter,
+                     constr = itchmodel::get_nonlinear_constraints,
+                     maxiter = max_iter,
+                     tol = rel_tol,
+                     NP = n_pop_per_free_param * n_free_params_counter,
+                     trace = TRUE,
+                     triter = 25, # Print every 25th iteration 
+                     # Additional arguments passed to fn and constr:
+                     data = synthetic_data_formatted,
+                     model = model_name,
+                     parameterization = counter_parameterization
+                   )
+```
+
+```{r Print the best-fitting parameters of the counter_parameterization model fit}
+(best_fit_counter_model <- 
+   itchmodel::params_to_tibble(optim_out_counter_model$par, 
+                               model = "DDM", 
+                               parameterization = counter_parameterization)
+ )
+```
+
+Print optimization procedure stats
+```{r Print optimization procedure stats of the counter_parameterization model fit}
+(optim_stats_counter_model <- 
+   itchmodel::get_fit_stats(optim_output = optim_out_counter_model, 
+                            model = model_name, 
+                            parameterization = counter_parameterization, 
+                            n_data_points = n_data_points)
+ )
+```
+
+Plot the observations and model predictions, using best-fitting parameters
+```{r Plot the observations and model predictions of the counter_parameterization, using best-fitting parameters}
+(plt_counter_parameterization <- 
+  itchmodel::plot_model_fit_to_data(df = synthetic_data_formatted,
+                                    params = optim_out_counter_model$par,
+                                    model = model_name,
+                                    parameterization = counter_parameterization
+                                    ))
+```
+Points represent observed probabilities of choosing large-but-later option. Lines represent best-fitting model predictions.
+
+# Compare optimization function value and best-fitting parameters between models
+
+Optimization function value. Lower values represent better fits
+```{r}
+tibble::tibble(model = c("generating", "counter")) %>%
+  dplyr::bind_cols(dplyr::bind_rows(optim_stats_gen_model, optim_stats_counter_model))
+```
+
+Best-fitting parameters, relative to true generating parameters
+```{r}
+tibble::tibble(parameter_set = c("true", "best_fit_generating", "best_fit_counter")) %>%
+  dplyr::bind_cols(dplyr::bind_rows(generating_params, best_fit_gen_model, best_fit_counter_model))
+```
+
+Best-fitting parameters of generating parameterization, relative to bounds
+```{r Best-fitting parameters of generating parameterization, relative to bounds}
+lowers_gen_tib <- 
+  itchmodel::params_to_tibble(lowers_gen, 
+                            model = model_name, 
+                            parameterization = generating_parameterization)
+
+uppers_gen_tib <- 
+  itchmodel::params_to_tibble(uppers_gen, 
+                            model = model_name, 
+                            parameterization = generating_parameterization)
+
+tibble::tibble(parameter_set = c("lower", 
+                                 "best_fit_generating", 
+                                 "upper", 
+                                 "best_fit_minus_lower", 
+                                 "upper_minus_best_fit")
+               ) %>%
+  dplyr::bind_cols(., dplyr::bind_rows(lowers_gen_tib, 
+                                       best_fit_gen_model, 
+                                       uppers_gen_tib,
+                                       lowers_gen_tib - best_fit_gen_model, 
+                                       uppers_gen_tib - best_fit_gen_model
+                                       )
+                   )
+```
+
+Best-fitting parameters of counter parameterization, relative to bounds
+```{r Best-fitting parameters of counter parameterization, relative to bounds}
+lowers_counter_tib <- 
+  itchmodel::params_to_tibble(lowers_counter, 
+                              model = model_name, 
+                              parameterization = counter_parameterization)
+
+uppers_counter_tib <- 
+  itchmodel::params_to_tibble(uppers_counter, 
+                              model = model_name, 
+                              parameterization = counter_parameterization)
+
+tibble::tibble(parameter_set = c("lower", 
+                                 "best_fit_counter", 
+                                 "upper", 
+                                 "best_fit_minus_lower", 
+                                 "upper_minus_best_fit")
+               ) %>%
+  dplyr::bind_cols(., dplyr::bind_rows(lowers_counter_tib, 
+                                       best_fit_counter_model, 
+                                       uppers_counter_tib,
+                                       lowers_counter_tib - best_fit_counter_model, 
+                                       uppers_counter_tib - best_fit_counter_model
+                                       )
+                   )
+```
+
+# Write optimization statistics to disk
+
+## Best-fitting parameters
+
+Write best-fitting parameters of generating parameterization to disk
+```{r Write best-fitting parameters of generating parameterization to disk}
+
+fmt_bf_params_generating_file <- "best_fitting_params_generating_model_%s_parameterization_%s_ix_%d_nrep_%d.csv"
+
+(bf_params_generating_file <- 
+  sprintf(fmt = fmt_bf_params_generating_file, 
+          model_name, 
+          generating_parameterization, 
+          i_dataset, 
+          n_repetition)
+  )
+
+readr::write_csv(x = best_fit_gen_model,
+                 path = file.path(optimizations_dir, 
+                                  notebook_name,
+                                  bf_params_generating_file),
+                 append = TRUE, # enables detection of problems: each file should have only one line,
+                 col_names = TRUE
+                 )
+```
+
+Write best-fitting parameters of counter parameterization to disk
+```{r Write best-fitting parameters of counter parameterization to disk}
+fmt_bf_params_counter_file <- "best_fitting_params_counter_model_%s_parameterization_%s_ix_%d_nrep_%d.csv"
+
+(bf_params_counter_file <- 
+  sprintf(fmt = fmt_bf_params_counter_file, 
+          model_name, 
+          counter_parameterization, 
+          i_dataset, 
+          n_repetition)
+  )
+
+readr::write_csv(x = best_fit_counter_model,
+                 path = file.path(optimizations_dir, 
+                                  notebook_name,
+                                  bf_params_counter_file),
+                 append = TRUE, # enables detection of problems: each file should have only one line,
+                 col_names = TRUE
+                 )
+```
+
+## Optimization statistics
+
+Write optimization statistics of generating parameterization to disk
+```{r Write optimization statistics of generating parameterization to disk}
+
+fmt_optim_stats_generating_file <- "optimization_statistics_generating_model_%s_parameterization_%s_ix_%d_nrep_%d.csv"
+
+(optim_stats_generating_file <- 
+  sprintf(fmt = fmt_optim_stats_generating_file, 
+          model_name, 
+          generating_parameterization, 
+          i_dataset, 
+          n_repetition)
+  )
+
+readr::write_csv(x = optim_stats_gen_model,
+                 path = file.path(optimizations_dir, 
+                                  notebook_name,
+                                  optim_stats_generating_file),
+                 append = TRUE, # enables detection of problems: each file should have only one line,
+                 col_names = TRUE
+                 )
+```
+
+Write optimization statistics of counter parameterization to disk
+```{r Write optimization statistics of counter parameterization to disk}
+
+fmt_optim_stats_counter_file <- "optimization_statistics_counter_model_%s_parameterization_%s_ix_%d_nrep_%d.csv"
+
+(optim_stats_counter_file <- 
+  sprintf(fmt = fmt_optim_stats_counter_file, 
+          model_name, 
+          generating_parameterization, 
+          i_dataset, 
+          n_repetition)
+  )
+
+readr::write_csv(x = optim_stats_counter_model,
+                 path = file.path(optimizations_dir, 
+                                  notebook_name,
+                                  optim_stats_counter_file),
+                 append = TRUE, # enables detection of problems: each file should have only one line,
+                 col_names = TRUE
+                 )
+```
