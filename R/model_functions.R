@@ -249,17 +249,23 @@ db_bin_choice_prob <- function(d, s, a, z) {
 
   theta <- a / 2
 
-  if (dplyr::near(d,0, tol = 1e-9)) {
+  if (any(dplyr::near(d,0, tol = 1e-9))) {
     d <- d + 1e-9
   }
 
   # Dividing infinite numbers results in NaNs; make negative drift rates smaller to prevent this
-  if (-2 * d * (theta + z) / s^2 > log(.Machine$double.xmax) |
-      -4 * d * theta / s^2 > log(.Machine$double.xmax)) {
-    d <-
-      max(c((log(.Machine$double.xmax) * s^2) / (-2 * (theta + z)),
-          (log(.Machine$double.xmax) * s^2) / (-4 * theta)))
-  }
+  d <- ifelse((-2 * d * (theta + z) / s^2 > log(.Machine$double.xmax) |
+            -4 * d * theta / s^2 > log(.Machine$double.xmax)),
+         max(c((log(.Machine$double.xmax) * s^2) / (-2 * (theta + z)),
+               (log(.Machine$double.xmax) * s^2) / (-4 * theta))),
+         d)
+
+  # if (-2 * d * (theta + z) / s^2 > log(.Machine$double.xmax) |
+  #     -4 * d * theta / s^2 > log(.Machine$double.xmax)) {
+  #   d <-
+  #     max(c((log(.Machine$double.xmax) * s^2) / (-2 * (theta + z)),
+  #         (log(.Machine$double.xmax) * s^2) / (-4 * theta)))
+  # }
 
   numerator <- (1 - exp(-2 * d * (theta + z) / s^2))
   denominator <- (1 - exp(-4 * d * theta / s^2))
@@ -380,7 +386,7 @@ get_default_parameter_values <- function() {
 #' @inheritParams fit_model
 #' @param optim_output output from DEoptim::DEoptim
 #' @param n_data_points number of data points (trials)
-#' DEoptim minimizes negative log likelihood. get_fit_stats computes log likelihood (LL), Akaike Information Criterion (AIC), and Bayesian Information Criterion (BIC) based on that.
+#' DEoptimR minimizes negative log likelihood. get_fit_stats computes log likelihood (LL), Akaike Information Criterion (AIC), and Bayesian Information Criterion (BIC) based on that.
 #'
 #' @export
 get_fit_stats <- function(optim_output, model = "", parameterization = "", n_data_points) {
@@ -390,14 +396,14 @@ get_fit_stats <- function(optim_output, model = "", parameterization = "", n_dat
                                    parameterization = parameterization)
 
   # Log-likelihood
-  LL <- -optim_output$optim$bestval
+  LL <- -optim_output$value
 
   # Return fit statistics
   tibble::tibble(model = model,
                  parameterization = parameterization,
-                 n_iter = optim_output$optim$iter,
-                 n_feval = optim_output$optim$nfeval,
-                 bestval = optim_output$optim$bestval,
+                 n_iter = optim_output$iter,
+                 converged = ifelse(optim_out_gen_model$convergence == 0, "TRUE", "FALSE"),
+                 bestval = optim_output$value,
                  LL = LL,
                  AIC = -2 * LL + 2 * n_free_param,
                  BIC = -2 * LL + log(n_data_points) * n_free_param
@@ -442,8 +448,6 @@ get_frames <- function(parameterization) {
 #' @inheritParams fit_model
 #' @export
 get_log_likelihood = function(x, data, model = "DDM", parameterization = "") {
-
-  print("Hey there, this is get_log_likelihood")
 
   # 1. Get parameter values ==================================================
   params <- get_par_values(x, model = model, parameterization = parameterization)
@@ -994,8 +998,6 @@ itch_ddm <- function(stimuli, parameters, parameterization = "", frame = "", n =
 #' @export
 ll_diffusion <- function(x, stimuli, frame = "", observations) {
 
-  print('Hey there')
-
   # 1. Unlist parameters =======================================================
   x <- unlist(x)
 
@@ -1114,7 +1116,7 @@ nest_join_stimuli_parameters <- function(stimuli = make_stimulus_df(),
   # Nested parameters ----------------------------------------------------------
   nested_parameters <-
     parameters %>%
-    get_par_values(x = ., model = "DDM", parameterization = parameterization) %>%
+    get_par_values(model = "DDM", parameterization = parameterization) %>%
     dplyr::bind_rows() %>%
     dplyr::mutate(frame = factor(levels(stimuli$frame),
                                  levels = levels(stimuli$frame))) %>%
@@ -1137,6 +1139,29 @@ nest_join_stimuli_parameters <- function(stimuli = make_stimulus_df(),
   nested_stimuli %>%
     dplyr::left_join(nested_parameters, by = "frame")
 
+}
+
+
+## params_to_tibble ############################################################
+#' Convert vector of parameters to a tibble with named columns
+#'
+#' @param x vector or parameters
+#' @param model model name
+#' @param parameterization model parameterization
+params_to_tibble <- function(x, model = "", parameterization = "") {
+  par_names <-
+    itchmodel::get_par_names(model = model,
+                             parameterization = parameterization)
+
+  params <-
+    matrix(x,
+           ncol = length(par_names)
+    )
+  colnames(params) <-
+    par_names
+
+  params %>%
+    tibble::as.tibble()
 }
 
 ## sample_params_from_pop ######################################################
