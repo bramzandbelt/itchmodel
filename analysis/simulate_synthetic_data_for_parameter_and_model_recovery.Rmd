@@ -1,0 +1,289 @@
+---
+title: "Simulation of synthetic data for parameter and model recovery"
+author: "Bram B. Zandbelt"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+    df_print: paged
+bibliography: "/Users/bramzandbelt/surfdrive/projects/BEWITCHING/itchmodel/itchmodel.bib"
+biblio-style: authoryear
+---
+
+# Overview
+This notebook generates synthetic intertemporal choice data that we will use to test how well we can recover the data generating parameters and models. The notebook contains five major sections. First, we define deal with some preliminaries and define variables. Second, we sample model parameter values from the population. Representative parameter values and the relationships among them were based on a previous study [@Dai.Busemeyer2014] and personal communication with the lead author of that study, respectively. Values of parameters that were not part of the Dai & Busemeyer study were guessed and loosely based on another model of intertemporal choice [@Scholten.Read2010; Scholten.Read2013]. Third, using these parameter values, we simulate an indifferent point procedure. The indifferent point procedure will precede the intertemporal choice experiment and serves to estimate approximate indifference points for a set of delays. We will use an indifference point procedure suggested by Frye and colleagues [-@Frye.etal2016], because it is efficient and effective (i.e. our simulations showed that it gets reasonable estimates of indifference points). Fourth, based on the indifferent point procedure, we define experimental trials. Experimental trials are a factorial combination of large-but-later amount (1 level: \euro 43.52), small-but-soon amounts (3 levels: around, below, above indifference point), large-but-later delay (7 levels: 2, 4, 8, 16, 32, 64, 128 days), small-but-soon delay (0 days), frame (3 levels for defer/speedup effect: neutral, defer, speedup; 2 levels for date/delay effect: delay, date), and how many times each trial will be repated (4 levels: 2, 3, 4, 5 times). Fifth, model parameters and simulated experiments are saved to disk, so they can be used for for parameter and model recovery.
+
+# Preliminaries
+
+## Start clean and from a well-defined state
+
+Clear data, values, and functions.
+```{r Clear data, values, and functions}
+rm(list = ls())
+```
+
+Set state for __random number generation__. This ensures that results can be reproduced.
+```{r Set state for random number generation}
+set.seed(19821101)
+```
+
+## Define some general variables
+
+Make `magrittr`'s __pipe__ accessible from notebook. Pipes enable clear expression of a sequence of multiple operations.
+```{r Provide access to pipe from magrittr }
+"%>%" <- magrittr::`%>%`
+```
+
+Identify the __project directory__. All paths in the code are relative to it.
+```{r Define project directory}
+project_dir <- rprojroot::find_root(rprojroot::has_file("DESCRIPTION"))
+```
+
+Define the __name of the notebook__ (`notebook_name`). It is used to save notebook output to a notebook-specific directory.
+```{r Define notebook name}
+notebook_name <- "simulate_synthetic_data_for_parameter_and_model_recovery"
+```
+
+Define some output directories and verify their existence. Data simulated in this notebook is written to a notebook-specific directory inside `simulations_dir`. If directories do not exist, they are created.
+```{r Define and verify existence of output directories}
+simulations_dir <- file.path(project_dir,"data","simulations")
+itchmodel::verify_output_dirs(base_dirs = list(simulations_dir),
+                   notebook_name = notebook_name)
+```
+
+## Define task variables
+
+__Monetary amounts__ and __temporal delays__
+The maximum amount of the larger-later option (`m_ll`) and the time of outcome delivery of the smaller-sooner option (`t_ss`) are constant across trials. The delay between the smaller-sooner and larger-later option (`t_lls`) increases exponentially.
+```{r Define monetary amounts and temporal delays}
+m_ll <- 43.52 # 0.17 * 2^8 = 43.52 -> this means we can vary amounts in steps of 17 or 34 cents
+t_ss <- 0 # small amount delivered immediately
+t_lls <- c(2,4,8,16,32,64,128) # Exponentially increasing delays, as suggested by Frye et al., JOVE, 2016
+```
+
+__Indifference point procedure__
+
+Set the number of trials that must be completed to determine an indifference point at each delay (`n_staircase_trials`).
+
+```{r Define number of staircase trials}
+n_staircase_trials <- 8 # For each delay, participants perform 8 choices in staircase procedure
+```
+
+__Experimental procedure variables__  
+
+Specify how many times a trial (i.e. a factorial combination of `frame`, `m_s`, `m_l`, `t_s`, and `t_l`) is repeated in the experiment (`n_repetition`). We create different data sets in order to determine how many repetitions are needed to satisfy sufficiently accurate parameter and model recovery.
+```{r Define number of trial repetitions}
+n_repetition <- seq(from = 2, to = 5)
+```
+
+## Define model variables
+We will simulate data for 4 __parameterizations__ (`parameterizations`) of one __model type__ (drift diffusion model, `DDM`), i.e. two parameterzations per task/framing phenomenon. The total __number of participants__ simulated is defined by `n_dataset`. For each dataset, a unique set of model parameters is sampled. The same parameter values are used across levels of `n_repetition`.
+
+
+```{r Define model variables}
+
+model_name <- "DDM"
+
+# Data generating models
+parameterizations <- c('defer_speedup_time_scaling',
+                       'defer_speedup_value_scaling',
+                       'date_delay_time_scaling',
+                       'date_delay_value_scaling'
+                       )
+
+# Number of datasets to generate
+n_dataset <- 100
+```
+
+
+
+Make a tibble in which the simulated data for each model and parameterization will be stored (`simulated_data`).
+```{r Define simulated data tibble}
+(simulated_data <- 
+  tidyr::crossing(model = model_name,
+                  parameterization = parameterizations))
+```
+
+
+# Sample model parameter values
+We sample `n_dataset` sets of parameters for each model and parameterization. Then we add them to `simulated_data` in the column `generating_parameters`.
+
+```{r Sample model parameter values, results="hide"}
+simulated_model_parameters <- 
+  simulated_data %>%
+  dplyr::mutate(model_parameters = purrr::pmap(.l = list(parameterization = .$parameterization),
+                 .f = itchmodel::sample_params_from_pop,
+                 n = n_dataset,
+                 stimuli = itchmodel::make_stimulus_df(frames = "neutral", 
+                                                       m_l = m_ll, 
+                                                       pct_m_l = 0, 
+                                                       t_s = 0, 
+                                                       interval = max(t_lls),
+                                                       n_reps = 1),
+                 model = model_name
+                 )) %>%
+  tidyr::unnest() %>% 
+  dplyr::rename(model_parameters = data)
+ 
+```
+
+Display the tibble
+```{r Display simulated_model_parameters tibble}
+simulated_model_parameters
+```
+
+Display examples of sampled model parameters
+```{r Display examples of sampled model parameters}
+(simulated_model_parameters %>% dplyr::filter(ix <= 2) %>% tidyr::unnest())
+```
+
+
+
+# Simulate indifference point procedure
+```{r Simulate indifference point procedure, results="hide"}
+simulated_trials <-
+  simulated_model_parameters %>%
+  dplyr::mutate(ip_procedure_data = purrr::pmap(.l = list(model = .$model,
+                                                          parameterization = .$parameterization,
+                                                          parameters = .$model_parameters),
+                                                .f = itchmodel::staircase_procedure,
+                                                m_ll = m_ll,
+                                                t_ss = t_ss,
+                                                t_lls = t_lls,
+                                                n_rep = 1,
+                                                procedure = '1up1down',
+                                                # Step size decreases by 50% after every trial
+                                                step_size_decreasing = TRUE,
+                                                decrease_every_trial = TRUE,
+                                                n_trial = n_staircase_trials
+                                                )
+                )
+```
+
+Display some examples of indifference point procedure
+```{r Display examples of indifference point procedure}
+(simulated_trials %>% dplyr::filter(ix <= 2) %>% dplyr::select(model, parameterization, ix, ip_procedure_data) %>% tidyr::unnest())
+```
+
+# Simulate experiment
+
+## Define experimental trials
+On the basis of the indifference point procedure, experimental trials are defined. Replicate the data for the different levels of `n_repetition`.
+```{r Define experimental trials}
+simulated_trials <-
+  simulated_trials %>%
+  tidyr::crossing(n_reps = n_repetition) %>%
+  dplyr::mutate(stimuli = purrr::pmap(.l = list(ip_data = .$ip_procedure_data,
+                                                parameterization = .$parameterization,
+                                                n_reps = .$n_reps),
+                                      .f = itchmodel::define_expt_trials,
+                                      n_staircase_trials = n_staircase_trials)
+                )
+```
+
+
+
+Display some examples of stimuli
+```{r Display some examples of stimuli}
+(simulated_trials %>% 
+   dplyr::filter(ix == 1, 
+                 parameterization == "defer_speedup_time_scaling") %>% 
+   dplyr::select(model, parameterization, ix, stimuli) %>% 
+   tidyr::unnest()
+ )
+```
+
+## Simulate synthetic data
+Stimuli and model parameters are used to simulate choices and response times.
+```{r Simulate synthetic data}
+simulated_trials <- 
+  simulated_trials %>%
+  dplyr::mutate(tmp_synthetic_data = purrr::pmap(.l = list(stimuli = .$stimuli,
+                                                       parameters = .$model_parameters,
+                                                       parameterization = .$parameterization
+                                                       ),
+                                             .f = itchmodel::sim_data)
+                ) %>%
+  dplyr::select(model, parameterization, ix, n_reps, tmp_synthetic_data) %>%
+  
+  dplyr::mutate(synthetic_data = purrr::pmap(.l = list(inpt = .$tmp_synthetic_data), 
+                                  .f = function(inpt) {inpt %>% 
+                                      dplyr::select(frame, stimuli, observations) %>% 
+                                      tidyr::unnest()})) %>%
+  dplyr::select(-tmp_synthetic_data)
+```
+
+Display some examples of synthetic data
+```{r Display some examples of synthetic data}
+(simulated_trials %>% 
+   dplyr::filter(ix == 1, 
+                 parameterization == "defer_speedup_time_scaling", 
+                 n_reps == 5) %>% 
+   dplyr::select(model, parameterization, ix, synthetic_data) %>% 
+   tidyr::unnest() %>%
+   # Do some selecting and sorting of columns
+   dplyr::select(model, parameterization, ix, frame, m_s, t_s, m_l, t_l, m_ss_type, response, rt) %>%
+   dplyr::arrange(t_l, m_s, frame)
+ )
+```
+
+# Save model parameters and experimental trials to disk
+
+## Model parameters
+Format of file name: `model_parameters_model_<model>_parameterization_<parameterization>_ix_<ix>.csv`
+
+```{r Save model parameters to disk}
+# Define filename
+simulated_model_parameters <- 
+  simulated_model_parameters %>%
+  dplyr::mutate(filename = purrr::pmap_chr(.l = list(model = .$model, 
+                                                     parameterization = .$parameterization,
+                                                     ix = .$ix),
+                                           .f = function(model, parameterization, ix, target_dir) {
+                                             file.path(target_dir,
+                                                       sprintf("model_parameters_model_%s_parameterization_%s_ix_%d.csv",
+                                                               model, parameterization, ix
+                                                               )
+                                                       )
+                                           },
+                                           target_dir = file.path(simulations_dir, notebook_name)
+                                           )
+                ) 
+
+# Write to disk
+out <- 
+  purrr::pmap(.l = list(x = simulated_model_parameters$model_parameters,
+                        path = simulated_model_parameters$filename),
+              .f = readr::write_csv)
+```
+
+## Experimental stimuli and observations
+Format of file name: `expt_stimuli_observations_model_<model>_parameterization_<parameterization>_ix_<ix>_nrep_<n_reps>.csv`
+
+```{r Save experimental stimuli and observations to disk}
+# Define filename
+simulated_trials <- 
+  simulated_trials %>%
+  dplyr::mutate(filename = purrr::pmap_chr(.l = list(model = .$model, 
+                                                     parameterization = .$parameterization,
+                                                     ix = .$ix,
+                                                     n_reps = .$n_reps),
+                                           .f = function(model, parameterization, ix, n_reps, target_dir) {
+                                             file.path(target_dir,
+                                                       sprintf("expt_stimuli_observations_model_%s_parameterization_%s_ix_%d_nrep_%d.csv",
+                                                               model, parameterization, ix, n_reps
+                                                               )
+                                                       )
+                                           },
+                                           target_dir = file.path(simulations_dir, notebook_name)
+                                           )
+                ) 
+
+# Write to disk
+out <- 
+  purrr::pmap(.l = list(x = simulated_trials$synthetic_data,
+                        path = simulated_trials$filename),
+              .f = readr::write_csv)
+```
+
+# References
