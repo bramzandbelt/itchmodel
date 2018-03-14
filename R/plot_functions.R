@@ -402,3 +402,197 @@ plot_transformation_diffs <- function(df) {
     ggplot2::expand_limits(y = 0)
 }
 
+
+## plot_model_fit_to_data ######################################################
+#' This function takes data, best-fitting parameters and plots empirical observation and model predictions
+#'
+#' @param obs observations, a tibble containing stimuli and responses
+#' @param params parameters, vector
+#' @param model model name
+#' @param parameterization model parameterization
+#'
+plot_model_fit_to_data <- function(df, params, model_name = "", parameterization = "") {
+
+
+
+  # Add model parameters =======================================================
+  df <-
+    df %>%
+    dplyr::mutate(parameters = itchmodel::get_par_values(params,
+                                                         model = model_name,
+                                                         parameterization = parameterization)
+    )
+
+
+  stim <- df$stimuli[[1]]
+
+  stimuli_for_prd <-
+    tidyr::crossing(frame = df$frame,
+                    m_s = max(stim$m_l) * seq(from = 2^-9,
+                                              to = 1,
+                                              by = 2^-9),
+                    t_s = 0,
+                    m_l = max(stim$m_l),
+                    t_l = unique(stim$t_l)
+                    # t_l = factor(unique(stim$t_l), levels = unique(stim$t_l))
+                    ) %>%
+    dplyr::group_by(frame) %>%
+    tidyr::nest(.key = stimuli)
+
+
+  df <-
+    df %>%
+    dplyr::mutate(predictions = purrr::pmap(.l = list(stim = stimuli_for_prd$stimuli,
+                                                      x = .$parameters,
+                                                      frame = .$frame),
+                                            .f = get_model_predictions,
+                                            parameterization = parameterization
+                                            )
+                  )
+
+  # Summarize stimuli and observations =========================================
+  df <-
+    df %>%
+    dplyr::mutate(stimuli_sum = purrr::pmap(.l = list(stim = .$stimuli),
+                                            .f = summarize_stimuli),
+                  observations_sum = purrr::pmap(.l = list(stim = .$stimuli,
+                                                           obs = .$observations),
+                                                 .f = summarize_observations)
+                  # predictions_sum = purrr::pmap(.l = list(stim = .$stimuli,
+                  #                                         prd = .$predictions),
+                  #                               .f = summarize_predictions)
+                  )
+
+  # Plot =======================================================================
+
+  obs_sum <-
+    dplyr::select(df, frame, observations_sum) %>%
+    tidyr::unnest()
+
+  prds <-
+    dplyr::select(df, frame, predictions) %>%
+    tidyr::unnest()
+
+  # m_l <- 43.52
+  # t_s <- 0
+
+  plt <-
+    ggplot2::ggplot(obs_sum,
+                    ggplot2::aes(x = m_s,
+                                 y = p_ll,
+                                 color = frame,
+                                 shape = frame)
+    ) +
+    ggplot2::facet_wrap("t_l")
+
+  plt <-
+    plt +
+    ggplot2::geom_line(data = prds)
+
+  plt <-
+    plt +
+    ggplot2::geom_point(stroke = 1) +
+    ggplot2::scale_shape_manual(values = c(3, 4, 1)) +
+    ggplot2::scale_x_continuous(name = "Small amount (Euro)") +
+    ggplot2::scale_y_continuous(name = "P(LL)") +
+    ggplot2::theme_minimal()
+
+  plt
+}
+
+
+# Subfunctions =================================================================
+
+#' Get stimuli summary statistics
+#'
+#' @param stim Stimuli
+summarize_stimuli <- function(stim) {
+  stim %>%
+    dplyr::group_by(t_l, m_ss_type) %>%
+    dplyr::summarize(m_s = mean(m_s),
+                     m_l = mean(m_l)
+    )
+}
+
+#' Get observation summary statistics
+#'
+#' @param stim Stimuli
+#' @param obs Observations
+summarize_observations <- function(stim, obs) {
+  dplyr::bind_cols(stim, obs) %>%
+    dplyr::mutate(response_int = dplyr::recode(.$response,
+                                               "upper" = 1,
+                                               "lower" = 0)
+    ) %>%
+    dplyr::group_by(t_l, m_ss_type) %>%
+    dplyr::summarize(m_s = mean(m_s),
+                     p_ll = mean(response_int),
+                     mean_rt = mean(rt)
+    )
+}
+
+#' Get observation summary statistics of predictions
+#'
+#' @param stim Stimuli
+#' @param obs Observations
+summarize_predictions <- function(stim, prd) {
+  dplyr::bind_cols(stim, prd) %>%
+    dplyr::group_by(t_l, m_ss_type) %>%
+    dplyr::summarize(m_s = mean(m_s),
+                     p_ll = mean(p_ll),
+                     mean_rt = mean(rt)
+    )
+}
+
+#' Get diffusion model predictions
+#'
+#' @param x vector of parameter values
+#' @param stim Stimuli
+#' @param frame Framing
+#' @param parameterization Parameterization of the model
+get_model_predictions <- function(x, stim, frame = "", parameterization = "") {
+
+  v <-
+    itchmodel::itch_ddm(stimuli = stim,
+                        parameters = x,
+                        parameterization = parameterization,
+                        frame = frame,
+                        sim_fun = "rtdists_package") %>%
+    dplyr::pull(v)
+  p_ll <-
+    rtdists::pdiffusion(rt = rep(Inf, length(v)),
+                        response = "upper",
+                        a = x['a'],
+                        v = v,
+                        t0 = x['t0'])
+
+  # The RT predictions need to be double-checked, not sure they'tre correct.
+  # At least, approach seems in line with the vignette:
+  # https://cran.r-project.org/web/packages/rtdists/vignettes/reanalysis_rr98.html#predicted-median-rts
+
+  # rt <-
+  #   rtdists::qdiffusion(p = p_ll,
+  #                       response = "upper",
+  #                       a = x['a'],
+  #                       v = v,
+  #                       t0 = x['t0'],
+  #                       maxt = 30,
+  #                       interval = c(0, 30))
+
+  # rt <- purrr::pmap_dbl(.l = list(v = v),
+  #                       .f = function(n, v, a, t0) {
+  #                         mean(rtdists::rdiffusion(n = n,
+  #                                             v = v,
+  #                                             a = a,
+  #                                             t0 = t0)$rt,
+  #                              na.rm = TRUE)},
+  #                       n = 30,
+  #                       a = x['a'],
+  #                       t0 = x['t0']
+  #                       )
+
+  stim %>%
+    dplyr::mutate(v = v,
+                  p_ll = p_ll)
+
+}
