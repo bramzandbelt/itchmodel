@@ -1,11 +1,7 @@
 PackratFormat: 1.4
 PackratVersion: 0.4.8.1
 RVersion: 3.3.3
-Repos: BioCsoft=https://bioconductor.org/packages/3.4/bioc,
-    BioCann=https://bioconductor.org/packages/3.4/data/annotation,
-    BioCexp=https://bioconductor.org/packages/3.4/data/experiment,
-    BioCextra=https://bioconductor.org/packages/3.4/extra,
-    CRAN=https://cran.rstudio.com/
+Repos: CRAN=http://cran.rstudio.com
 
 Package: BFDA
 Source: github
@@ -169,8 +165,8 @@ Hash: ff2840dd9b0d563fc80377a5a45510cd
 
 Package: curl
 Source: CRAN
-Version: 2.8.1
-Hash: 5a3f385f21add1e944b93b3cd9ce8b48
+Version: 3.1
+Hash: 877149b42d479b93ab15d5cef46c0f1b
 
 Package: deSolve
 Source: CRAN
@@ -522,9 +518,9 @@ Hash: 8eb4b2dce38b8f663cb9364b28eaa76b
 
 Package: rmarkdown
 Source: CRAN
-Version: 1.6
-Hash: 40f4034a7b8e28edc2b384bdb0c4d537
-Requires: base64enc, caTools, evaluate, htmltools, jsonlite, knitr,
+Version: 1.8
+Hash: 2a7842e3cee62a79dd737d17e9e9d86b
+Requires: base64enc, evaluate, htmltools, jsonlite, knitr, mime,
     rprojroot, stringr, yaml
 
 Package: roxygen2
