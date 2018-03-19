@@ -46,14 +46,39 @@ plot_v_heatmap <- function(data) {
 
 ```
 
-Make stimuli
-```{r Make stimuli}
+# Make stimuli
+Common settings across tasks
+```{r}
+m_l <- c(19.68)
+pct_m_l <- c(0.2, 0.5, 0.7, 0.8, 0.88, 0.93, 0.97, 0.99)
+t_s <- c(0)
+interval <- c(1, 2, 3, 5, 7, 10, 14)
+n_reps <- 1
+
+
+```
+
+
+For Defer/Speedup effect
+```{r Make stimuli for defer/speedup effect}
+frames <- c('neutral','defer', 'speedup')
+
+defer_speedup_stimuli <- 
+  itchmodel::make_stimulus_df(frames = frames,
+                              m_l = m_l,
+                              pct_m_l = pct_m_l,
+                              t_s = t_s,
+                              interval = interval,
+                              n_reps = n_reps
+                              )
+```
+
+
+
+For Date/Delay effect
+```{r Make stimuli for date/delay effect}
 
 frames <- c('delay','date')
-m_l <- c(50)
-pct_m_l <- seq(from = 0.10, to = 0.90, by = 0.10)
-t_s <- c(0)
-interval <- seq(from = 10, to = 90, by = 10)
 
 date_delay_stimuli <- 
   itchmodel::make_stimulus_df(frames = frames,
@@ -67,7 +92,20 @@ date_delay_stimuli <-
 
 # Simulate data
 
+## Defer/Speedup effect
+We consider 
+
+
 ## Date delay value sensitivity model
+We consider 2 models:
+1. Value sensitivity differs between framing conditions, so that $1 > \alpha_{date} > \alpha_{delay}$
+2. Time scaling differs between framing conditions, so that $1 \leq \kappa_{date} < \kappa_{delay}$
+
+For completeness, we may also investigate two other models in which valuation and time weighting are affected differently:
+3. Value scaling differs between framing conditions
+4. Time sensitivity differs between framing conditions
+
+### Model 1 - value sensitivity
 
 ```{r Simulate data for date_delay_value_sensitivity model}
 
@@ -94,17 +132,17 @@ par_date_value_sensitivity <-
 
 # Make tidy data frame
 tb_date_delay_value_sensitivity <- 
-  stimuli %>%
+  date_delay_stimuli %>%
   dplyr::mutate(delta_m = as.factor(m_l - m_s),
                 delta_t = as.factor(t_l - t_s),
-                v_delay = compute_drift_rate(parameters = par_delay_value_sensitivity, 
-                                             stimuli = stimuli, 
-                                             parameterization = "date_delay_value_sensitivity", 
-                                             frame = "delay"),
-                v_date = compute_drift_rate(parameters = par_date_value_sensitivity, 
-                                            stimuli = stimuli, 
-                                            parameterization = "date_delay_value_sensitivity", 
-                                            frame = "date"),
+                v_delay = itchmodel::compute_drift_rate(parameters = par_delay_value_sensitivity, 
+                                                        stimuli = ., 
+                                                        parameterization = "date_delay_value_sensitivity", 
+                                                        frame = "delay"),
+                v_date = itchmodel::compute_drift_rate(parameters = par_date_value_sensitivity, 
+                                                       stimuli = ., 
+                                                       parameterization = "date_delay_value_sensitivity", 
+                                                       frame = "date"),
                 v_date_minus_delay = v_date - v_delay
                 ) %>%
   tidyr::gather(key = 'condition', value = 'v', v_delay:v_date_minus_delay) %>%
@@ -141,15 +179,15 @@ par_date_time_scaling <-
 
 # Make tidy data frame
 tb_date_delay_time_scaling <- 
-  stimuli %>%
+  date_delay_stimuli %>%
   dplyr::mutate(delta_m = as.factor(m_l - m_s),
                 delta_t = as.factor(t_l - t_s),
                 v_delay = compute_drift_rate(parameters = par_delay_time_scaling, 
-                                             stimuli = stimuli, 
+                                             stimuli = defer_speedup_stimuli, 
                                              parameterization = "date_delay_time_scaling", 
                                              frame = "delay"),
                 v_date = compute_drift_rate(parameters = par_date_time_scaling, 
-                                            stimuli = stimuli, 
+                                            stimuli = defer_speedup_stimuli, 
                                             parameterization = "date_delay_time_scaling", 
                                             frame = "date"),
                 v_date_minus_delay = v_date - v_delay
@@ -254,6 +292,7 @@ tb_defer_speedup_time_scaling <-
 
 ```{r}
 plot_v_heatmap(data = tb_date_delay_value_sensitivity)
+
 ```
 
 
