@@ -654,6 +654,8 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
   # SR_JEPLMC_2013 - Scholten & Read, J Exp Psychol Learn Mem Cogn, 2013, p. 1197
   # rtdists - documentation accompanying the R package rtdists
 
+  #TODO: verify correctness of kappa_loss. According to values below, kappa_loss varies between 1 and 3, and is used as kappa parameter for the time weighting parameterization for the date delay effect. Yet, I believe that kappa should be between 0 and 1 for this effect
+
   lowers = list('alpha' = .01, # DB_JEPG_2014
                 'mu' = 1, # SR_JEPLMC_2013
                 'mu_gain' = 1,
