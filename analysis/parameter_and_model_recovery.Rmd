@@ -27,7 +27,7 @@ Steps:
 
 Set state for __random number generation__. This ensures that results can be reproduced.
 ```{r Set state for random number generation}
-set.seed(19821101)
+set.seed(19821101 + 4 * (params$i_dataset -1) + params$n_repetition - 1)
 ```
 
 ## Define some general variables
@@ -103,7 +103,7 @@ A total of 100 synthetic data sets were generated for each combination of model,
 
 The __maximum number of iterations__ (`max_iter`) of the optimization algorithm before it should terminate.
 ```{r Set maximum number of iterations}
-max_iter <- 30
+max_iter <- 1000
 ```
 
 The relative tolerance (`rel_tol`) is the tolerance for the stopping criterion of the optimization algorithm.
