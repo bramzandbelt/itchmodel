@@ -9,24 +9,19 @@ The model is based on two tradeoff models of intertemporal choice: one that can 
 
 Conceptually, the model explains intertemporal choice as a __three-step process__:
 
-1. A decision maker transforms money, $m$, into utility, $u$ (value function), and calendar time, $t$, into perceived time, $p$ (time function), separately for each option. These value and time functions are governed by a power transformation:
+![Intertemporal choice model](./itchmodel_schematic.png)
 
-$u = \mu \times m^\alpha$,
-$p = \kappa \times t^\beta$,
+1. A decision maker transforms money into utility (value function), and calendar time into perceived/weighted time (time function), separately for the small-but-sooner and large-but-later options. These value and time functions are governed by power transformations.
 
-where $\mu$ and $\kappa$ are _scaling_ parameters and $\alpha$ and $\beta$ are _sensitivity_ parameters. 
+2. Differences in utility are compared against differences in perceived/weighted time with different attentional weights (_w_ is the amount of attention allocated to the money attribute, _(1-w)_ is interpreted as the the amount of attention allocated to the delay attribute), resulting in _d_, the overall advantage of the large-but-later option over the small-but-sooner option.
 
-2. Differences in utility ($\Delta u$) are compared against differences in perceived time ($\Delta p$) with different attentional weights ($w$), resulting in $d$:
-
-$d = w \times \Delta u - (1 - w) \times \Delta p$
-
-3. The net difference $d$ is accumulated over time (i.e. diffusion or sequential-sampling process) to a threshold, $\theta$, that triggers an explicit preferential choice, providing predicted choice and response time.
+3. The parameter _d_ is accumulated over time (i.e. diffusion or sequential-sampling process) to a threshold that triggers an explicit preferential choice, providing predicted choice and response time.
 
 The current version of the model allows for 2 __parameterizations__ for each framing effect:
 
-1. Parameter $\mu$ varies between frames, corresponding to the hypothesis that time framing influences valuation.
+1. Parameter _mu_ varies between frames, corresponding to the hypothesis that time framing influences valuation.
 
-2. Parameter $\kappa$ varies between frames, corresponding to the hypothesis that time framing influences time weighting/perception.
+2. Parameter _kappa_ varies between frames, corresponding to the hypothesis that time framing influences time weighting/perception.
 
 ## Installation
 
