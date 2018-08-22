@@ -665,7 +665,7 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
                 'kappa_gain' = 0,
                 'kappa_loss' = 1,
                 'w' = 0.05, # DB_JEPG_2014
-                "a" = 0.5, # rtdists
+                "a" = 0.1, # Adjusted by BBZ; rtdists: 0.5
                 "t0" = 0.05 # rtdists
                 )
 
@@ -676,9 +676,9 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
                 'beta' = 2, # DB_JEPG_2014
                 'kappa' = 1, # SR_JEPLMC_2013
                 'kappa_gain' = 1,
-                'kappa_loss' = 3, # guess
+                'kappa_loss' = 10, # guess
                 'w' = 0.95, # DB_JEPG_2014
-                "a" = 2, # rtdists
+                "a" = 10, # Adjusted by BBZ; rtdists: 2
                 "t0" = 3 # DB_JEPG_2014 (data in Table 10)
   )
 
@@ -702,8 +702,8 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
                 # - date framing: kappa = kappa_loss < 1
 
                 date_delay_time_scaling =
-                  list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'], l['kappa_loss'], l['w'], l['a'], l['t0']),
-                       upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'], u['kappa_loss'], u['w'], u['a'], u['t0'])
+                  list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'], l['kappa_gain'], l['w'], l['a'], l['t0']),
+                       upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'], u['kappa_gain'], u['w'], u['a'], u['t0'])
                   ),
 
                 # 1.2. Changes in value scaling (mu) ---------------------------
@@ -976,13 +976,14 @@ itch_ddm <- function(stimuli, parameters, parameterization = "", frame = "", n =
 
   if (sim_fun == 'dai_busemeyer') {
     tibble::tibble(p_ll = itchmodel::db_bin_choice_prob(d = v,
-                                                        s = 1,
+                                                        s = 0.1,
                                                         a = unname(x['a']),
                                                         z = 0))
   } else if (sim_fun == 'rtdists_package') {
     purrr::map_df(.x = v,
                   .f = rtdists::rdiffusion,
                   n = n,
+                  s = 0.1,
                   a = x['a'],
                   t0 = x['t0']
     ) %>%
