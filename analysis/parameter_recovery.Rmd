@@ -9,15 +9,15 @@ output: html_document
 The aim of this notebook is to determine whether the optimization procedure can recover model parameters with which data were simulated.
 
 Parameter recovery will be performed for the four core models ("parameterizations") that will be tested:
-- sensitivity of the value function
-- sensitivity of the time function
 - scaling of the value function
 - scaling of the time function
+- sensitivity of the value function (optional)
+- sensitivity of the time function (optional)
 
 # Preliminaries
 
-Clear everything
-```{r Provide access to pipe from magrittr }
+Clear data, values, and functions
+```{r Clear data, values, and functions}
 rm(list = ls())
 ```
 
@@ -26,160 +26,264 @@ Make `magrittr`'s pipe accessible from notebook.
 "%>%" <- magrittr::`%>%`
 ```
 
-Set seed
+Set state for random number generation
 ```{r Set state for random number generation}
 set.seed(19821101)
 ```
 
-Task parameters
+## Model settings
+
+Parameterization, parameter bounds, and parameter names
 ```{r}
-frames <- c('delay','date')
-m_l <- c(19.68)
-pct_m_l <- c(0.2, 0.5, 0.7, 0.8, 0.88, 0.93, 0.97, 0.99)
-t_s <- c(0)
-interval <- c(1, 2, 3, 5, 7, 10, 14)
-n_reps <- 90 # This number should be large, to ensure that the simulated data is representative of the underlying parameters
+parameterization <- "defer_speedup_value_scaling"
+
+# Parameter names
+names <- get_par_names(model = "DDM", 
+                       parameterization = parameterization)
+
+# Lower and upper bounds
+lowers <- get_par_bounds(model = "DDM", 
+                         parameterization = parameterization, 
+                         bound = "lower")
+uppers <- get_par_bounds(model = "DDM", 
+                         parameterization = parameterization, 
+                         bound = "upper")
+
+# Show
+tibble::tibble(names = names, 
+               lower_bound = lowers, 
+               upper_bound = uppers)
 ```
 
-Task stimuli
+Number of free parameters
+```{r}
+n_free_param <- sum(!(lowers == uppers))
+```
+
+
+Default values, group-average parameters from Dai & Busemeyer, JEP General, 2014, Table 10
+```{r}
+# def_alpha <- 0.85 # Sensitivity of the value function
+# def_mu <- 1 # Scaling of the value function
+# def_beta <- 0.70 # Sensitivity of the time function
+# def_kappa <- 1 # Scaling of the time function
+# def_w <- 0.5 # Attentional weight
+# def_a <- 0.5 # Threshold separation
+# def_t0 <- 0.3 # Non-decision time
+# 
+def_parameter_list <- 
+  list('alpha' = .94, # Sensitivity of the value function, varies between frames
+       'mu' = 1, # Scaling of the value function
+       'beta' = .6, # Sensitivity of the time function
+       'kappa' = 1, # Scaling of the time function
+       'w' = 0.48, # Attentional weight
+       "a" = 1.94/2, # Threshold separation
+       "t0" = 1.23 # Non-decision time,
+       )
+```
+
+```{r}
+# Parameters
+parameters <- def_parameter_list
+  
+if (parameterization == "defer_speedup_value_scaling") {
+  # Scaling of the value function varies between frames: mu_neutral < mu_defer = mu_speedup (see Scholten & Read, JEPHPP, 2013 for more details)
+  parameters[['mu']] <- c(1, 1.1, 1.1)
+} else if (parameterization == "defer_speedup_time_scaling") {
+  # Scaling of the time function varies between frames: kappa_defer > kappa_neutral > kappa_speedup (see Scholten & Read, JEPHPP, 2013 for more details)
+  kappa_coef <- 1.1
+  
+  parameters[['kappa']] <- c(1, kappa_coef, 1/kappa_coef)
+} else if (parameterization == "date_delay_value_scaling") {
+  # Sensitivity of the value function varies between frames: mu_delay < mu_date
+  parameters[['mu']] <- c(1, 1.1)
+} else if (parameterization == "date_delay_time_scaling") {
+  # Scaling of the time function varies between frames: kappa_delay > kappa_date
+  parameters[['kappa']] <- c(1.5, 1)
+}
+
+sampled_par_vals <- unlist(parameters)
+```
+
+
+
+## Task settings
+
+### Define task parameters
+```{r}
+m_ll <- 43.52 # 0.17 * 2^8 = 43.52 -> this means we can vary amounts in steps of 17 or 34 cents
+t_ss <- 0 # small amount delivered immediately
+t_lls <- c(2,4,8,16,32,64,128) # Exponentially increasing delays, recommended by Frye et al., JOVE, 2016
+n_staircase_trials <- 7 # For each delay, participants perform 8 choices in staircase procedure
+n_reps <- 5 # Number of repetitions of each trial
+```
+
+### Simulate indifference point procedure
+
+1-up-1-down procedure - small number of decreasing steps
+```{r}
+(responses_1U1D_decreasing_step <- 
+   itchmodel::staircase_procedure(m_ll = m_ll, 
+                                  t_ss = t_ss, 
+                                  t_lls = t_lls,
+                                  n_rep = 1, 
+                                  procedure = '1up1down',
+                                  parameters = def_parameter_list, 
+                                  step_size_decreasing = TRUE,
+                                  decrease_every_trial = TRUE,
+                                  n_trial = n_staircase_trials
+                                  )
+ )
+
+itchmodel::plot_my_indifference_point_procedure(responses_1U1D_decreasing_step)
+```
+
+### Determine data points to be used in experiment
+
+```{r}
+(experimental_stimuli <- 
+  responses_1U1D_decreasing_step %>%
+  dplyr::filter(trial == max(trial)) %>%
+  dplyr::select(t_ll, m_ss, true_i_p) %>%
+  dplyr::rename(around = m_ss) %>%
+  dplyr::mutate(below = around - m_ll * 2^-(n_staircase_trials-1),
+                above = around + m_ll * 2^-(n_staircase_trials-1)
+                ) %>%
+  tidyr::gather(key = "m_ss_type", value = "m_ss", below, around, above) %>%
+  dplyr::arrange(t_ll, m_ss))
+
+```
+
+### Make task stimuli
 ```{r Task stimuli}
 stimuli <- 
-  itchmodel::make_stimulus_df(frames = frames,
-                              m_l = m_l,
-                              pct_m_l = pct_m_l,
-                              t_s = t_s,
-                              interval = interval,
-                              n_reps = n_reps
-                              )
+  experimental_stimuli %>%
+  dplyr::rename(t_l = t_ll,
+                m_s = m_ss) %>%
+  tidyr::crossing(frame = factor(itchmodel::get_frames("defer_speedup_value_scaling"), 
+                               levels = itchmodel::get_frames("defer_speedup_value_scaling")),
+                  rep = 1:n_reps
+                  ) %>%
+  dplyr::mutate(m_l = m_ll,
+                t_s = t_ss) %>%
+  dplyr::select(frame, m_s, t_s, m_l, t_l, m_ss_type)
 ```
+
+## Optimization settings
 
 Optimization parameters
 ```{r Optimization parameters}
 max_iter <- 500
 reltol <- 1e-6
-NP_per_free_param <- 20
+np_per_free_param <- 20
 ```
 
-# Parameter recovery
+(Additional constraints, other than bounds, may be set inside the cost function, ll_diffusion.)
 
-## Parameterization: sensitivity of the value function
+## Simulate synthetic data
 
-Specify model parameters and simulate synthetic data.
-```{r Specify model parameters and simulate synthetic data for value sensitivity parameterization}
-# Specify model parameters
-parameters_sens_val <- list('alpha' = c(0.85, 0.95), # Sensitivity of the value function, varies between frames
-                            'mu' = 1, # Scaling of the value function
-                            'beta' = 0.70, # Sensitivity of the time function
-                            'kappa' = 1, # Scaling of the time function
-                            'w' = 0.5, # Attentional weight
-                            "a" = 1, # Threshold separation
-                            "t0" = 0.1 # Non-decision time,
-                            )
+This needs to be implemented later:
 
-# Specify lower and upper bounds on parameters
-lowers <- get_par_bounds(model = "DDM", parameterization = "date_delay_value_sensitivity", bound = "lower")
-uppers <- get_par_bounds(model = "DDM", parameterization = "date_delay_value_sensitivity", bound = "upper")
-names <- get_par_names(model = "DDM", parameterization = "date_delay_value_sensitivity")
+Sample parameter values from a uniform distribution with bounds
+```{r}
+# sampled_par_vals <- 
+#   purrr::pmap_dbl(.l = list(min = lowers, 
+#                             max = uppers),
+#                   .f = runif, # Sample from uniform distribution
+#                   n = 1)
+# 
+# names(sampled_par_vals) <- 
+#   get_par_names(model = "DDM",
+#                 parameterization = parameterization)
+# 
+# tibble::tibble(names = names, 
+#                values = sampled_par_vals)
+```
 
-# Determine number of free parameters
-N_free_param <- sum(!(lowers == uppers))
 
-# Simulate synthetic data
-synthetic_data_sens_val <- 
+```{r}
+# # Put parameters in a format that sim_data can deal with
+# sampled_par_vals_per_frame <- 
+#   sampled_par_vals %>%
+#   itchmodel::get_par_values(model = "DDM", 
+#                             parameterization = parameterization)
+  
+# parameters <- 
+#     list('alpha' = purrr::map_dbl(.x = sampled_par_vals_per_frame, .f = function(x) {x['alpha']}),
+#          'mu' = purrr::map_dbl(.x = sampled_par_vals_per_frame, .f = function(x) {x['mu']}),
+#        'beta' = purrr::map_dbl(.x = sampled_par_vals_per_frame, .f = function(x) {x['beta']}),
+#        'kappa' = purrr::map_dbl(.x = sampled_par_vals_per_frame, .f = function(x) {x['kappa']}),
+#        'w' = purrr::map_dbl(.x = sampled_par_vals_per_frame, .f = function(x) {x['w']}),
+#        'a' = purrr::map_dbl(.x = sampled_par_vals_per_frame, .f = function(x) {x['a']}),
+#        't0' = purrr::map_dbl(.x = sampled_par_vals_per_frame, .f = function(x) {x['t0']})
+# )
+
+synthetic_data <- 
   itchmodel::sim_data(stimuli = stimuli,
-                      parameters = parameters_sens_val,
-                      parameterization = "date_delay_value_sensitivity") %>% 
+                      parameters = parameters,
+                      parameterization = parameterization) %>% 
   dplyr::select(-parameters)
-
 ```
 
-Fit the DDM model with value sensitivity parameterization to the synthetic data
+# Fit the model to the data by optimizig parameters
+
 ```{r Fit the DDM model with value sensitivity parameterization to the synthetic data}
 
-
-optim_data_sens_val <- 
-  itchmodel::fit_model(data = synthetic_data_sens_val , 
+optim_output <- 
+  itchmodel::fit_model(data = synthetic_data,
                        model = "DDM", 
-                       parameterization = "value_sensitivity", 
+                       parameterization = parameterization, 
+                       lowers = itchmodel::get_par_bounds(model = "DDM",
+                                                          parameterization = parameterization,
+                                                          bound = 'lower'),
+                       uppers = itchmodel::get_par_bounds(model = "DDM",
+                                                          parameterization = parameterization,
+                                                           bound = 'upper'),
                        control = list(itermax = max_iter,
                                       reltol = reltol,
-                                      NP = NP_per_free_param * N_free_param
-                                      ))
-
+                                      NP = np_per_free_param * n_free_param
+                                      )
+                       )
 ```
 
-# Write all relevant data to disk
+# Evaluate output
 
-Print summary
-```{r Print summary of optimization procedure - DDM model with value sensitivity parameterization}
-summary(optim_data_sens_val)
+## Fitting stats
+```{r}
+(fit_stats <- 
+   itchmodel::get_fit_stats(optim_output, 
+                            model = "DDM", 
+                            parameterization = parameterization,
+                            n_data_points = nrow(stimuli))
+ )
+```
+
+
+## Best fitting parameters
+The following table shows for each parameter, the best-fitting parameter values (`best`), the parameter values with which the data were simulated (`generating`), the lower and upper bounds on the parameters (`l_bound` and `u_bound`, respectively), as well as the difference between the best-fitting parameter values and the parameter values with which the data were simulated, and the two bounds (`d_generating`, `d_lower`, and `d_upper`, respectively)
+
+```{r}
+tibble::tibble(names = names, 
+               l_bound = lowers,
+               generating = sampled_par_vals,
+               best = optim_output$optim$bestmem,
+               u_bound = uppers,
+               d_generating = optim_output$optim$bestmem - sampled_par_vals,
+               d_lower = optim_output$optim$bestmem - lowers,
+               d_upper = uppers - optim_output$optim$bestmem
+               )
 ```
 
 Plots
 ```{r Plot evolution of parameters values across iterations - DDM model with value sensitivity parameterization}
-plot_parameter_recovery_results(model = "DDM",
-                                parameterization = "time_sensitivity",
-                                orig_params = unlist(parameters_sens_val),
-                                optim_output = optim_data_sens_val
-                                )
+itchmodel::plot_parameter_recovery_results(model = "DDM",
+                                           parameterization = parameterization,
+                                           orig_params = sampled_par_vals,
+                                           optim_output = optim_output
+                                           )
 ```
 
 ```{r Plot evolution of optimization function value across iterations - DDM model with value sensitivity parameterization}
 # Plot negative maximum likelihood evolved across iterations
-plot_optim_fun_evol(optim_data_sens_val)
+itchmodel::plot_optim_fun_evol(optim_output = optim_output)
 ```
-
-## Parameterization: sensitivity of the time function
-
-Specify model parameters and simulate synthetic data.
-```{r Specify model parameters and simulate synthetic data for time sensitivity parameterization}
-# Specify model parameters
-parameters_sens_time <- list('alpha' = 0.90, # Sensitivity of the value function
-                             'mu' = 1, # Scaling of the value function
-                             'beta' = c(0.65,0.75), # Sensitivity of the time function, varies between frames
-                             'kappa' = 1, # Scaling of the time function
-                             'w' = 0.5, # Attentional weight
-                             "a" = 1, # Threshold separation
-                             "t0" = 0.1 # Non-decision time,
-                             )
-# Simulate synthetic data
-synthetic_data_sens_time <- 
-  itchmodel::sim_data(stimuli = stimuli,
-                      parameters = parameters_sens_time,
-                      parameterization = "time_sensitivity") %>% 
-  dplyr::select(-parameters)
-
-```
-
-Fit the DDM model with time sensitivity parameterization to the synthetic data
-```{r Fit the DDM model with time sensitivity parameterization to the synthetic data}
-optim_data_sens_time <- 
-  itchmodel::fit_model(data = synthetic_data_sens_time , 
-                       model = "DDM", 
-                       parameterization = "time_sensitivity", 
-                       max_iterations = max_iter)
-```
-
-Print summary
-```{r Print summary of optimization procedure - DDM model with time sensitivity parameterization}
-summary(optim_data_sens_time)
-```
-
-Plots
-```{r Plot evolution of parameters values across iterations - DDM model with time sensitivity parameterization}
-plot_parameter_recovery_results(model = "DDM",
-                                parameterization = "time_sensitivity",
-                                orig_params = unlist(parameters_sens_time),
-                                optim_output = optim_data_sens_time
-                                )
-```
-
-```{r Plot evolution of optimization function value across iterations - DDM model with time sensitivity parameterization}
-# Plot negative maximum likelihood evolved across iterations
-plot_optim_fun_evol(optim_data_sens_time)
-```
-
-
-## Parameterization: scaling of the value function
-
-## Parameterization: scaling of the time function
