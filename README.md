@@ -35,6 +35,10 @@ library(itchmodel)
 
 Usage will be explained in more detail soon. In the meantime, see the R Markdown notebooks inside the `analysis` directory for usage examples.
 
+### Parameter and model recovery
+
+
+
 ## Colophon
 
 ### Version
