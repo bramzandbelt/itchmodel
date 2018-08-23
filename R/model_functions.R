@@ -1015,6 +1015,7 @@ ll_diffusion <- function(x, stimuli, frame = "", observations) {
     tryCatch(rtdists::ddiffusion(rt = observations$rt,
                                  response = observations$response,
                                  v = v,
+                                 s = 0.1,
                                  a = x['a'],
                                  t0 = x['t0']),
              error = function(e) 0)
