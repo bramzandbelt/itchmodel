@@ -4,6 +4,7 @@
 #
 # N.B. Make sure that file's permissions allow others to execute this file
 # N.B. Make sure that you update path strings and PBS .sh-file below
+# N.B. Make sure that present working directory is the R project directory
 
 # Model parameterization
 parameterization_string="date_delay_value_sensitivity";
