@@ -1,8 +1,28 @@
 
+  # Standardize the data:
+  data {
+    for ( j in 1:Nx ) {
+      xm[j]  <- mean(x[,j])
+      xsd[j] <-   sd(x[,j])
+      for ( i in 1:Ntotal ) {
+        zx[i,j] <- ( x[i,j] - xm[j] ) / xsd[j]
+      }
+    }
+  }
+  # Specify the model for standardized data:
   model {
     for ( i in 1:Ntotal ) {
-      y[i] ~ dbern( theta )
+      # In JAGS, ilogit is logistic:
+      y[i] ~ dbern( ilogit( zbeta0 + sum( zbeta[1:Nx] * zx[i,1:Nx] ) ) )
+      # y[i] ~ dbern( ilogit( sum( zbeta[1:Nx] * zx[i,1:Nx] ) ) )
     }
-    theta ~ dbeta( 1 , 1 )
+    # Priors vague on standardized scale:
+    zbeta0 ~ dnorm( 0 , 1/2^2 )
+    for ( j in 1:Nx ) {
+      zbeta[j] ~ dnorm( 0 , 1/2^2 )
+    }
+    # Transform to original scale:
+    beta[1:Nx] <- zbeta[1:Nx] / xsd[1:Nx]
+    beta0 <- zbeta0 - sum( zbeta[1:Nx] * xm[1:Nx] / xsd[1:Nx] )
   }
   
