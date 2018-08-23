@@ -428,9 +428,12 @@ plot_model_fit_to_data <- function(df, params, model_name = "", parameterization
 
   stimuli_for_prd <-
     tidyr::crossing(frame = df$frame,
-                    m_s = max(stim$m_l) * seq(from = 2^-9,
+                    # m_s = max(stim$m_l) * seq(from = 2^-9,
+                    #                           to = 1,
+                    #                           by = 2^-9),
+                    m_s = max(stim$m_l) * seq(from = 2^-4,
                                               to = 1,
-                                              by = 2^-9),
+                                              by = 2^-4),
                     t_s = 0,
                     m_l = max(stim$m_l),
                     t_l = unique(stim$t_l)
@@ -559,12 +562,21 @@ get_model_predictions <- function(x, stim, frame = "", parameterization = "") {
                         frame = frame,
                         sim_fun = "rtdists_package") %>%
     dplyr::pull(v)
-  p_ll <-
-    rtdists::pdiffusion(rt = rep(Inf, length(v)),
-                        response = "upper",
-                        a = x['a'],
-                        v = v,
-                        t0 = x['t0'])
+
+  # Let's do this using Dai & Busemeyer's method, which gives identical probabilities as rtdists::pdiffusion, but
+  # is faster
+  p_ll <- itchmodel::db_bin_choice_prob(d = v,
+                                        s = 1,
+                                        a = x["a"],
+                                        z = 0)
+
+
+  # p_ll <-
+  #   rtdists::pdiffusion(rt = rep(Inf, length(v)),
+  #                       response = "upper",
+  #                       a = x['a'],
+  #                       v = v,
+  #                       t0 = x['t0'])
 
   # The RT predictions need to be double-checked, not sure they'tre correct.
   # At least, approach seems in line with the vignette:
