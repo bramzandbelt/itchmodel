@@ -273,6 +273,79 @@ db_bin_choice_prob <- function(d, s, a, z) {
   numerator / denominator
 
 }
+
+## dft_cp ######################################################################
+#' Compute choice probability density, according to decision field theory
+#'
+#' Code is based on the function CP.m by Junyi Dai
+#'
+#' @export
+#'
+dft_cp <- function(d, s, theta, z, response) {
+
+  theta <- max(c(theta, 1e-4))
+  if (response == "lower") {
+    d <- -d
+    z <- -z
+  }
+
+  if (-4 * d * theta / s^2 > 500) {
+    cp <- .0001
+  } else {
+    if (d == 0) {
+      d = 1e-100
+    }
+
+    cp <- expm1(-2 * d * (theta + z) / s^2) / expm1(-4 * d * theta / s^2)
+    cp <- max(min(cp, .9999), .0001)
+  }
+
+}
+
+## dft_dpd #####################################################################
+#' Compute defective probability density of a specific response time , according
+#' to to decision field theory
+#'
+#' Code is based on the function DPD.m by Junyi Dai
+#'
+#' @export
+#'
+dft_dpd <- function(d, s, theta, z, response, rtd) {
+
+  if (response == "lower") {
+    d <- -d
+    z <- -z
+  }
+
+  tolerance <- 1e-200
+  j <- 1
+  dpd <- 0
+
+  step_size <-
+    pi * (2 * theta / s)^(-2) * j *
+    exp(d * (theta - z) / s^2 -
+          ((pi * j * s / (2 * theta))^2 + (d / s)^2) * rtd / 2)
+  while (step_size > tolerance) {
+    dpd <- dpd + step_size * sin(pi * (theta - z) * j / (2 * theta))
+    j <- j + 1
+    step_size <-
+      pi * (2 * theta / s)^(-2) * j *
+      exp(d * (theta - z) / s^2 -
+            ((pi * j * s / (2 * theta))^2 + (d / s)^2) * rtd / 2);
+
+  }
+
+
+  if (dpd > 0) {
+    pd <- dpd
+  } else {
+    pd <- 1e-200
+  }
+
+  return(pd)
+
+}
+
 ## eq_list_elements ############################################################
 #' Ensure that list elemens are equal across conditions
 #'
@@ -299,8 +372,8 @@ eq_list_elements <- function(lst, n_cond) {
 #' Function for fitting intertemporal choice diffusion model
 #'
 #' @param data Tibble with nested data
-#' @param model Name of the model. Currently, only DDM is supported.
-#' @param parameterization Name of the parameterization. Currently, there are nine possibilities: (1) date_delay_time_scaling; (2) date_delay_time_scaling_t0; (3) date_delay_value_scaling; (4) date_delay_value_scaling_t0; (5) defer_speedup_value_scaling; (6) defer_speedup_value_scaling_t0; (7) defer_speedup_time_scaling; (8) defer_speedup_time_scaling_t0, and (9) one_condition.
+#' @param model Name of the model. Currently, three models are implemented: decision field theory - choices only (DFT_C), decision field theory - choices and response times (DFT_CRT), and the drift diffusion model (DDM)
+#' @param parameterization Name of the parameterization. Currently, there are nine possibilities: (1) date_delay_time_scaling; (2) date_delay_time_scaling_t0; (3) date_delay_value_scaling; (4) date_delay_value_scaling_t0; (5) defer_speedup_value_scaling; (6) defer_speedup_value_scaling_t0; (7) defer_speedup_time_scaling; (8) defer_speedup_time_scaling_t0, and (9) one_condition. The parameterizations in which t0 varies between conditions is only available for DFT_CRT and DDM.
 #' @param control A list of control parameters for the Differential Evolution algorithm
 fit_model <- function(data,
                       model = "",
@@ -316,8 +389,8 @@ fit_model <- function(data,
 
   # 1. Assert that inputs meet certain conditions ==============================
 
-  assertthat::assert_that(model %in% c('DDM'),
-                          msg = "model is ill-specified. Currently, only the following model is supported: \n'DDM'")
+  assertthat::assert_that(model %in% c("DDM", "DFT_C", "DFT_CRT"),
+                          msg = "model is ill-specified. Currently, only the following models are supported: \n'DDM', 'DFT_C', and 'DFT_CRT'")
 
   assertthat::assert_that(parameterization %in% c('one_condition',
                                                   'date_delay_time_scaling',
@@ -334,30 +407,29 @@ fit_model <- function(data,
   assertthat::assert_that(is.double(uppers), msg = "uppers should be a double-precision vector")
 
   # 2. Use Differential Evolution to optimize model parameters =================
-
-  # optim_out <-
-  #   DEoptim::DEoptim(fn = itchmodel::get_log_likelihood, # optimization function
-  #                    lower = lowers,
-  #                    upper = uppers,
-  #                    data = data,
-  #                    model = model,
-  #                    parameterization = parameterization,
-  #                    control = control
-  #                    )
-
-  # Nonlinear Constrained and Unconstrained Optimization via Differential Evolution
   optim_out <-
-  DEoptimR::JDEoptim(fn = itchmodel::get_log_likelihood, # optimization function
+    DEoptim::DEoptim(fn = itchmodel::get_log_likelihood, # optimization function
                      lower = lowers,
                      upper = uppers,
-                     constr = get_nonlinear_constraints(data = data,
-                                                        model = model,
-                                                        parameterization = parameterization),
                      data = data,
                      model = model,
                      parameterization = parameterization,
                      control = control
-  )
+                     )
+
+  # Nonlinear Constrained and Unconstrained Optimization via Differential Evolution
+  # optim_out <-
+  # DEoptimR::JDEoptim(fn = itchmodel::get_log_likelihood, # optimization function
+  #                    lower = lowers,
+  #                    upper = uppers,
+  #                    constr = get_nonlinear_constraints(data = data,
+  #                                                       model = model,
+  #                                                       parameterization = parameterization),
+  #                    data = data,
+  #                    model = model,
+  #                    parameterization = parameterization,
+  #                    control = control
+  # )
 
   # Add model and parameterization to output
   attributes(optim_out)$model = model
@@ -455,7 +527,7 @@ get_frames <- function(parameterization) {
 #' @param x parameters
 #' @inheritParams fit_model
 #' @export
-get_log_likelihood = function(x, data, model = "DDM", parameterization = "") {
+get_log_likelihood = function(x, data, model = "DFT_C", parameterization = "") {
 
   # 1. Get parameter values ==================================================
   params <- get_par_values(x, model = model, parameterization = parameterization)
@@ -463,14 +535,38 @@ get_log_likelihood = function(x, data, model = "DDM", parameterization = "") {
   # 2. Return negative log-likelihood for function minimization ================
   ll <- 0
 
-  for (i_cond in 1:length(params)) {
-    ll <-
-      ll +
-      ll_diffusion(x = params[[i_cond]],
-                   stimuli = data$stimuli[[i_cond]],
-                   frame = data$frame[[i_cond]],
-                   observations = data$observations[[i_cond]])
+  if (model == "DFT_C") {
+    for (i_cond in 1:length(params)) {
+      ll <-
+        ll +
+        ll_dft(x = params[[i_cond]],
+               stimuli = data$stimuli[[i_cond]],
+               frame = data$frame[[i_cond]],
+               observations = data$observations[[i_cond]],
+               rt = FALSE)
+    }
+  } else if (model == "DFT_CRT") {
+    for (i_cond in 1:length(params)) {
+      ll <-
+        ll +
+        ll_dft(x = params[[i_cond]],
+               stimuli = data$stimuli[[i_cond]],
+               frame = data$frame[[i_cond]],
+               observations = data$observations[[i_cond]],
+               rt = TRUE)
+    }
+  } else if (model == "DDM") {
+    for (i_cond in 1:length(params)) {
+      ll <-
+        ll +
+        ll_diffusion(x = params[[i_cond]],
+                     stimuli = data$stimuli[[i_cond]],
+                     frame = data$frame[[i_cond]],
+                     observations = data$observations[[i_cond]])
+    }
   }
+
+
 
   ll
 
@@ -535,7 +631,7 @@ get_m_ss_estimates <- function(data, p) {
 #'
 #' @inheritParams fit_model
 #' @export
-get_par_names = function(model = "DDM", parameterization = "") {
+get_par_names = function(model = "DFT_C", parameterization = "") {
 
   # 1. Get model parameter names ===============================================
   list(DDM =
@@ -593,6 +689,70 @@ get_par_names = function(model = "DDM", parameterization = "") {
            # - speedup framing:
 
            defer_speedup_value_scaling_t0 = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "a", "t01", "t02", "t03")
+         ),
+       DFT_C =
+         list(
+           # 1.1. One condition ------------------------------------------------
+           one_condition = c("alpha", "mu", "beta", "kappa", "w", "theta_star"),
+
+           # 1.2.1. Date/delay effect - changes in time scaling (kappa) ----------
+           # - delay framing: kappa = 1
+           # - date framing: kappa = kappa_loss < 1
+
+           date_delay_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "w", "theta_star"),
+
+           # 1.3.1. Date/delay effect - changes in value scaling (mu) ----------
+           # - delay framing: mu = 1
+           # - date framing: mu = mu_gain > 1
+
+           date_delay_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star"),
+
+           # 1.4.1. Defer/speedup effect - changes in time scaling (kappa) -----
+           # - neutral framing: kappa = 1
+           # - defer framing: kappa > 1 (over-responsive to deferrals)
+           # - speedup framing: kappa < 1 (under-responsive to speedups)
+
+           defer_speedup_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "kappa3", "w", "theta_star"),
+
+           # 1.5.1. Defer/speedup effect - changes in value scaling (mu) -------
+           # - neutral framing:
+           # - defer framing:
+           # - speedup framing:
+
+           defer_speedup_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star"),
+
+         ),
+       DFT_CRT =
+         list(
+           # 1.1. One condition ------------------------------------------------
+           one_condition = c("alpha", "mu", "beta", "kappa", "w", "theta_star"),
+
+           # 1.2.1. Date/delay effect - changes in time scaling (kappa) ----------
+           # - delay framing: kappa = 1
+           # - date framing: kappa = kappa_loss < 1
+
+           date_delay_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "w", "theta_star"),
+
+           # 1.3.1. Date/delay effect - changes in value scaling (mu) ----------
+           # - delay framing: mu = 1
+           # - date framing: mu = mu_gain > 1
+
+           date_delay_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star"),
+
+           # 1.4.1. Defer/speedup effect - changes in time scaling (kappa) -----
+           # - neutral framing: kappa = 1
+           # - defer framing: kappa > 1 (over-responsive to deferrals)
+           # - speedup framing: kappa < 1 (under-responsive to speedups)
+
+           defer_speedup_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "kappa3", "w", "theta_star"),
+
+           # 1.5.1. Defer/speedup effect - changes in value scaling (mu) -------
+           # - neutral framing:
+           # - defer framing:
+           # - speedup framing:
+
+           defer_speedup_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star"),
+
          )
   )[[model]][[parameterization]]
 
@@ -603,7 +763,7 @@ get_par_names = function(model = "DDM", parameterization = "") {
 #'
 #' @inheritParams get_par_bounds
 #' @export
-get_n_free_param = function(model = "DDM", parameterization = "") {
+get_n_free_param = function(model = "DFT_C", parameterization = "") {
 
   # 1. Get lower and upper bounds for all parameters ===========================
 
@@ -625,7 +785,7 @@ get_n_free_param = function(model = "DDM", parameterization = "") {
 #' @param model
 #' @param parameterizationn model parameterization
 #' @export
-get_nonlinear_constraints <- function(x, data, model = "DDM", parameterization = "") {
+get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization = "") {
 
   # 1. Get parameter values ====================================================
   x_named <- get_par_values(x, model = model, parameterization = parameterization)
@@ -679,15 +839,13 @@ get_nonlinear_constraints <- function(x, data, model = "DDM", parameterization =
 #' @inheritParams fit_model
 #' @param bound bound for which to obtain values, either "lower" or "upper"
 #' @export
-get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower") {
+get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower") {
 
   # 1. Define lower and upper bounds for all parameters ========================
   # Values are based on the following sources:
   # DB_JEPG_2014 - Dai & Busemeyer, J Exp Psychol Gen, 2014 - p. 1512
   # SR_JEPLMC_2013 - Scholten & Read, J Exp Psychol Learn Mem Cogn, 2013, p. 1197
   # rtdists - documentation accompanying the R package rtdists
-
-  #TODO: verify correctness of kappa_loss. According to values below, kappa_loss varies between 1 and 3, and is used as kappa parameter for the time weighting parameterization for the date delay effect. Yet, I believe that kappa should be between 0 and 1 for this effect
 
   lowers = list('alpha' = .01, # DB_JEPG_2014
                 'mu' = 1, # SR_JEPLMC_2013
@@ -699,7 +857,8 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
                 'kappa_loss' = 1,
                 'w' = 0.05, # DB_JEPG_2014
                 "a" = 0.1, # Adjusted by BBZ; rtdists: 0.5
-                "t0" = 0.05 # rtdists; N.B. lowers identical across different parameterizations
+                "t0" = 0.05, # rtdists; N.B. lowers identical across different parameterizations
+                "theta_star" = 0.01 # DB_JEPG_2014
                 )
 
   uppers = list('alpha' = 2, # DB_JEPG_2014
@@ -712,7 +871,8 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
                 'kappa_loss' = 10, # guess
                 'w' = 0.95, # DB_JEPG_2014
                 "a" = 10, # Adjusted by BBZ; rtdists: 2
-                "t0" = 3 # DB_JEPG_2014 (data in Table 10); N.B. uppers identical across different parameterizations
+                "t0" = 3, # DB_JEPG_2014 (data in Table 10); N.B. uppers identical across different parameterizations
+                "theta_star" = 100 # DB_JEPG_2014
   )
 
   # Put in a vector
@@ -744,8 +904,10 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
                 # - date framing: kappa = kappa_loss < 1, t0 = t02
 
                 date_delay_time_scaling_t0 =
-                  list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'], l['kappa_gain'], l['w'], l['a'], l['t0'], l['t0']),
-                       upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'], u['kappa_gain'], u['w'], u['a'], u['t0'], u['t0'])
+                  list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'],
+                                 l['kappa_gain'], l['w'], l['a'], l['t0'], l['t0']),
+                       upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'],
+                                 u['kappa_gain'], u['w'], u['a'], u['t0'], u['t0'])
                   ),
 
                 # 1.2.1. Changes in value scaling (mu) ---------------------------
@@ -753,8 +915,10 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
                 # - date framing: mu = mu_gain > 1
 
                 date_delay_value_scaling =
-                  list(lower = c(l['alpha'], l['mu'], l['mu_gain'], l['beta'], l['kappa'], l['w'], l['a'], l['t0']),
-                       upper = c(u['alpha'], u['mu'], u['mu_gain'], u['beta'], u['kappa'], u['w'], u['a'], u['t0'])
+                  list(lower = c(l['alpha'], l['mu'], l['mu_gain'], l['beta'],
+                                 l['kappa'], l['w'], l['a'], l['t0']),
+                       upper = c(u['alpha'], u['mu'], u['mu_gain'], u['beta'],
+                                 u['kappa'], u['w'], u['a'], u['t0'])
                   ),
 
                 # 1.2.2. Changes in value scaling (mu) ---------------------------
@@ -762,8 +926,10 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
                 # - date framing: mu = mu_gain > 1, t0 = t02
 
                 date_delay_value_scaling_t0 =
-                  list(lower = c(l['alpha'], l['mu'], l['mu_gain'], l['beta'], l['kappa'], l['w'], l['a'], l['t0'], l['t0']),
-                       upper = c(u['alpha'], u['mu'], u['mu_gain'], u['beta'], u['kappa'], u['w'], u['a'], u['t0'], u['t0'])
+                  list(lower = c(l['alpha'], l['mu'], l['mu_gain'], l['beta'],
+                                 l['kappa'], l['w'], l['a'], l['t0'], l['t0']),
+                       upper = c(u['alpha'], u['mu'], u['mu_gain'], u['beta'],
+                                 u['kappa'], u['w'], u['a'], u['t0'], u['t0'])
                   ),
 
                 # 2. Defer-speedup effect ======================================
@@ -774,8 +940,10 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
                 # - speedup framing: kappa < 1 (under-responsive to speedups)
 
                 defer_speedup_time_scaling =
-                  list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'], l['kappa_loss'], l['kappa_gain'], l['w'], l['a'], l['t0']),
-                       upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'], u['kappa_loss'], u['kappa_gain'], u['w'], u['a'], u['t0'])
+                  list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'],
+                                 l['kappa_loss'], l['kappa_gain'], l['w'], l['a'], l['t0']),
+                       upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'],
+                                 u['kappa_loss'], u['kappa_gain'], u['w'], u['a'], u['t0'])
                   ),
 
                 # 2.1.2. Changes in time scaling (kappa) -----------------------
@@ -784,8 +952,12 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
                 # - speedup framing: kappa < 1 (under-responsive to speedups), t0 = t03
 
                 defer_speedup_time_scaling_t0 =
-                  list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'], l['kappa_loss'], l['kappa_gain'], l['w'], l['a'], l['t0'], l['t0'], l['t0']),
-                       upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'], u['kappa_loss'], u['kappa_gain'], u['w'], u['a'], u['t0'], u['t0'], u['t0'])
+                  list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'],
+                                 l['kappa_loss'], l['kappa_gain'], l['w'],
+                                 l['a'], l['t0'], l['t0'], l['t0']),
+                       upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'],
+                                 u['kappa_loss'], u['kappa_gain'], u['w'],
+                                 u['a'], u['t0'], u['t0'], u['t0'])
                   ),
 
                 # 2.2.1. Changes in value scaling (mu) ---------------------------
@@ -794,8 +966,10 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
                 # - speedup framing:
 
                 defer_speedup_value_scaling =
-                  list(lower = c(l['alpha'], l['mu'], l['mu_loss'], l['beta'], l['kappa'], l['w'], l['a'], l['t0']),
-                       upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'], u['kappa'], u['w'], u['a'], u['t0'])
+                  list(lower = c(l['alpha'], l['mu'], l['mu_loss'], l['beta'],
+                                 l['kappa'], l['w'], l['a'], l['t0']),
+                       upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'],
+                                 u['kappa'], u['w'], u['a'], u['t0'])
                   ),
 
                 # 2.2.2. Changes in value scaling (mu) ---------------------------
@@ -804,12 +978,178 @@ get_par_bounds = function(model = "DDM", parameterization = "", bound = "lower")
                 # - speedup framing:
 
                 defer_speedup_value_scaling_t0 =
-                  list(lower = c(l['alpha'], l['mu'], l['mu_loss'], l['beta'], l['kappa'], l['w'], l['a'], l['t0'], l['t0'], l['t0']),
-                       upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'], u['kappa'], u['w'], u['a'], u['t0'], u['t0'], u['t0'])
+                  list(lower = c(l['alpha'], l['mu'], l['mu_loss'], l['beta'],
+                                 l['kappa'], l['w'], l['a'], l['t0'], l['t0'], l['t0']),
+                       upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'],
+                                 u['kappa'], u['w'], u['a'], u['t0'], u['t0'], u['t0'])
                   )
 
 
-                )
+                ),
+         DFT_C = list(one_condition =
+                        list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'],
+                                       l['w'], l['theta_star']),
+                             upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'],
+                                       u['w'], u['theta_star'])
+                        ),
+
+                      # 1. Date-delay effect =========================================
+
+                      # 1.1.1. Changes in time scaling (kappa) -------------------------
+                      # - delay framing: kappa = 1
+                      # - date framing: kappa = kappa_loss < 1
+
+                      date_delay_time_scaling =
+                        list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'],
+                                       l['kappa_gain'], l['w'], l['theta_star']),
+                             upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'],
+                                       u['kappa_gain'], u['w'], u['theta_star'])
+                        ),
+
+                      # 1.2.1. Changes in value scaling (mu) ---------------------------
+                      # - delay framing: mu = 1
+                      # - date framing: mu = mu_gain > 1
+
+                      date_delay_value_scaling =
+                        list(lower = c(l['alpha'], l['mu'], l['mu_gain'], l['beta'],
+                                       l['kappa'], l['w'], l['theta_star']),
+                             upper = c(u['alpha'], u['mu'], u['mu_gain'], u['beta'],
+                                       u['kappa'], u['w'], u['theta_star'])
+                        ),
+
+                      # 2. Defer-speedup effect ======================================
+
+                      # 2.1.1. Changes in time scaling (kappa) -----------------------
+                      # - neutral framing: kappa = 1
+                      # - defer framing: kappa > 1 (over-responsive to deferrals)
+                      # - speedup framing: kappa < 1 (under-responsive to speedups)
+
+                      defer_speedup_time_scaling =
+                        list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'],
+                                       l['kappa_loss'], l['kappa_gain'], l['w'], l['theta_star']),
+                             upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'],
+                                       u['kappa_loss'], u['kappa_gain'], u['w'], u['theta_star'])
+                        ),
+
+                      # 2.2.1. Changes in value scaling (mu) ---------------------------
+                      # - neutral framing:
+                      # - defer framing:
+                      # - speedup framing:
+
+                      defer_speedup_value_scaling =
+                        list(lower = c(l['alpha'], l['mu'], l['mu_loss'], l['beta'],
+                                       l['kappa'], l['w'], l['theta_star']),
+                             upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'],
+                                       u['kappa'], u['w'], u['theta_star'])
+                        )
+         ),
+         DFT_CRT = list(one_condition =
+                          list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'],
+                                         l['w'], l['theta_star'], l['t0']),
+                               upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'],
+                                         u['w'], u['theta_star'], u['t0'])
+                          ),
+
+                        # 1. Date-delay effect =========================================
+
+                        # 1.1.1. Changes in time scaling (kappa) -------------------------
+                        # - delay framing: kappa = 1
+                        # - date framing: kappa = kappa_loss < 1
+
+                        date_delay_time_scaling =
+                          list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'],
+                                         l['kappa_gain'], l['w'], l['theta_star'], l['t0']),
+                               upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'],
+                                         u['kappa_gain'], u['w'], u['theta_star'], u['t0'])
+                          ),
+
+                        # 1.1.2. Changes in time scaling (kappa) & t0 ------------------
+                        # - delay framing: kappa = 1, t0 = t01
+                        # - date framing: kappa = kappa_loss < 1, t0 = t02
+
+                        date_delay_time_scaling_t0 =
+                          list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'],
+                                         l['kappa_gain'], l['w'], l['theta_star'], l['t0'], l['t0']),
+                               upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'],
+                                         u['kappa_gain'], u['w'], u['theta_star'], u['t0'], u['t0'])
+                          ),
+
+                        # 1.2.1. Changes in value scaling (mu) ---------------------------
+                        # - delay framing: mu = 1
+                        # - date framing: mu = mu_gain > 1
+
+                        date_delay_value_scaling =
+                          list(lower = c(l['alpha'], l['mu'], l['mu_gain'], l['beta'],
+                                         l['kappa'], l['w'], l['theta_star'], l['t0']),
+                               upper = c(u['alpha'], u['mu'], u['mu_gain'], u['beta'],
+                                         u['kappa'], u['w'], u['theta_star'], u['t0'])
+                          ),
+
+                        # 1.2.2. Changes in value scaling (mu) ---------------------------
+                        # - delay framing: mu = 1, t0 = t01
+                        # - date framing: mu = mu_gain > 1, t0 = t02
+
+                        date_delay_value_scaling_t0 =
+                          list(lower = c(l['alpha'], l['mu'], l['mu_gain'], l['beta'],
+                                         l['kappa'], l['w'], l['theta_star'], l['t0'], l['t0']),
+                               upper = c(u['alpha'], u['mu'], u['mu_gain'], u['beta'],
+                                         u['kappa'], u['w'], u['theta_star'], u['t0'], u['t0'])
+                          ),
+
+                        # 2. Defer-speedup effect ======================================
+
+                        # 2.1.1. Changes in time scaling (kappa) -----------------------
+                        # - neutral framing: kappa = 1
+                        # - defer framing: kappa > 1 (over-responsive to deferrals)
+                        # - speedup framing: kappa < 1 (under-responsive to speedups)
+
+                        defer_speedup_time_scaling =
+                          list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'],
+                                         l['kappa_loss'], l['kappa_gain'], l['w'], l['theta_star'], l['t0']),
+                               upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'],
+                                         u['kappa_loss'], u['kappa_gain'], u['w'], u['theta_star'], u['t0'])
+                          ),
+
+                        # 2.1.2. Changes in time scaling (kappa) -----------------------
+                        # - neutral framing: kappa = 1, t0 = t01
+                        # - defer framing: kappa > 1 (over-responsive to deferrals), t0 = t02
+                        # - speedup framing: kappa < 1 (under-responsive to speedups), t0 = t03
+
+                        defer_speedup_time_scaling_t0 =
+                          list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'],
+                                         l['kappa_loss'], l['kappa_gain'], l['w'],
+                                         l['theta_star'], l['t0'], l['t0'], l['t0']),
+                               upper = c(u['alpha'], u['mu'], u['beta'], u['kappa'],
+                                         u['kappa_loss'], u['kappa_gain'], u['w'],
+                                         u['theta_star'], u['t0'], u['t0'], u['t0'])
+                          ),
+
+                        # 2.2.1. Changes in value scaling (mu) ---------------------------
+                        # - neutral framing:
+                        # - defer framing:
+                        # - speedup framing:
+
+                        defer_speedup_value_scaling =
+                          list(lower = c(l['alpha'], l['mu'], l['mu_loss'], l['beta'],
+                                         l['kappa'], l['w'], l['theta_star'], l['t0']),
+                               upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'],
+                                         u['kappa'], u['w'], u['theta_star'], u['t0'])
+                          ),
+
+                        # 2.2.2. Changes in value scaling (mu) ---------------------------
+                        # - neutral framing:
+                        # - defer framing:
+                        # - speedup framing:
+
+                        defer_speedup_value_scaling_t0 =
+                          list(lower = c(l['alpha'], l['mu'], l['mu_loss'], l['beta'],
+                                         l['kappa'], l['w'], l['theta_star'], l['t0'], l['t0'], l['t0']),
+                               upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'],
+                                         u['kappa'], u['w'], u['theta_star'], u['t0'], u['t0'], u['t0'])
+                          )
+
+
+         )
          )[[model]][[parameterization]][[bound]]
     )
 }
@@ -825,8 +1165,9 @@ get_par_pop_stats <- function(model = "DDM", parameterization = "", descstat = "
                 'kappa_gain' = 1 / 1.2, # Guesstimate
                 'kappa_loss' = 1.2, # Guesstimate
                 'w' = 0.48, # Source: DB_2014 (Table 10, Expt. 3)
-                "a" = 1.94 / 2, # Source: DB_2014 (Table 10, Expt. 3, a = theta_star / 2)
-                "t0" = 1.23 # # Source: DB_2014 (Table 10, Expt. 3)
+                "a" = 1, # Source: guesstimate based on typical range according to rtdists
+                "t0" = 1.23, # # Source: DB_2014 (Table 10, Expt. 3)
+                "theta_star" = 1.94 # Source: DB_2014 (Table 10, Expt. 3)
                )
 
   sds = list('alpha' = 0.64, # Source: DB_2014 (Table 10, Expt. 3)
@@ -838,8 +1179,9 @@ get_par_pop_stats <- function(model = "DDM", parameterization = "", descstat = "
              'kappa_gain' = 1 / 1.2, # Guesstimate
              'kappa_loss' = 1.2, # Guesstimate
              'w' = 0.18, # Source: DB_2014 (Table 10, Expt. 3)
-             "a" = 0.61, # Source: DB_2014 (Table 10, Expt. 3, a = theta_star / 2)
-             "t0" = 0.14 # # Source: DB_2014 (Table 10, Expt. 3)
+             "a" = 1, # Guesstimate
+             "t0" = 0.14, # # Source: DB_2014 (Table 10, Expt. 3)
+             "theta_star" = 0.61, # Source: DB_2014 (Table 10, Expt. 3, a = theta_star / 2)
   )
 
   M <- unlist(means)
@@ -995,7 +1337,7 @@ get_par_pop_stats <- function(model = "DDM", parameterization = "", descstat = "
 #' @param x parameters
 #' @inheritParams fit_model
 #' @export
-get_par_values = function(x, model = "DDM", parameterization = "") {
+get_par_values = function(x, model = "DFT_C", parameterization = "") {
 
   # 1. Define parameter names ==================================================
   parameter_names <-
@@ -1006,115 +1348,284 @@ get_par_values = function(x, model = "DDM", parameterization = "") {
                            parameterization = parameterization)
 
   # 2. Extract parameter values ================================================
+  if (model == "DDM") {
+    if (parameterization == "one_condition") {
+      params = c(x["alpha"], x["mu"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
+      names(params) = parameter_names
 
-  if (parameterization == "one_condition") {
-    params = c(x["alpha"], x["mu"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
-    names(params) = parameter_names
+    } else if (parameterization == "date_delay_time_scaling") {
 
-  } else if (parameterization == "date_delay_time_scaling") {
+      # 2.1.1. Date/delay effect - changes in time scaling (kappa) ---------------
 
-    # 2.1.1. Date/delay effect - changes in time scaling (kappa) ---------------
+      # delay frame: kappa = 1
+      params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["a"], x["t0"])
 
-    # delay frame: kappa = 1
-    params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["a"], x["t0"])
+      # date frame: kappa = kappa_loss < 1
+      params[[2]] = c(x["alpha"], x["mu"], x["beta"], x["kappa2"], x["w"], x["a"], x["t0"])
 
-    # date frame: kappa = kappa_loss < 1
-    params[[2]] = c(x["alpha"], x["mu"], x["beta"], x["kappa2"], x["w"], x["a"], x["t0"])
+      names(params[[1]]) = names(params[[2]]) = parameter_names
 
-    names(params[[1]]) = names(params[[2]]) = parameter_names
+    } else if (parameterization == "date_delay_time_scaling_t0") {
 
-  } else if (parameterization == "date_delay_time_scaling_t0") {
+      # 2.1.2. Date/delay effect - changes in time scaling (kappa) & t0 ----------
 
-    # 2.1.2. Date/delay effect - changes in time scaling (kappa) & t0 ----------
+      # delay frame: kappa = 1, t0 = t01
+      params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["a"], x["t01"])
 
-    # delay frame: kappa = 1, t0 = t01
-    params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["a"], x["t01"])
+      # date frame: kappa = kappa_loss < 1, t0 = t02
+      params[[2]] = c(x["alpha"], x["mu"], x["beta"], x["kappa2"], x["w"], x["a"], x["t02"])
 
-    # date frame: kappa = kappa_loss < 1, t0 = t02
-    params[[2]] = c(x["alpha"], x["mu"], x["beta"], x["kappa2"], x["w"], x["a"], x["t02"])
+      names(params[[1]]) = names(params[[2]]) = parameter_names
 
-    names(params[[1]]) = names(params[[2]]) = parameter_names
+    } else if (parameterization == "date_delay_value_scaling") {
 
-  } else if (parameterization == "date_delay_value_scaling") {
+      # 2.2.1. Date/delay effect - changes in value scaling (mu) -----------------
 
-    # 2.2.1. Date/delay effect - changes in value scaling (mu) -----------------
+      # delay frame: mu = 1
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
 
-    # delay frame: mu = 1
-    params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
+      # date frame: mu = mu_gain > 1
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
+      names(params[[1]]) = names(params[[2]]) = parameter_names
 
-    # date frame: mu = mu_gain > 1
-    params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
-    names(params[[1]]) = names(params[[2]]) = parameter_names
+    } else if (parameterization == "date_delay_value_scaling_t0") {
 
-  } else if (parameterization == "date_delay_value_scaling_t0") {
+      # 2.2.2. Date/delay effect - changes in value scaling (mu) & t0 ------------
 
-    # 2.2.2. Date/delay effect - changes in value scaling (mu) & t0 ------------
+      # delay frame: mu = 1, t0 = t01
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["a"], x["t01"])
 
-    # delay frame: mu = 1, t0 = t01
-    params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["a"], x["t01"])
+      # date frame: mu = mu_gain > 1, t0 = t02
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["a"], x["t02"])
+      names(params[[1]]) = names(params[[2]]) = parameter_names
 
-    # date frame: mu = mu_gain > 1, t0 = t02
-    params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["a"], x["t02"])
-    names(params[[1]]) = names(params[[2]]) = parameter_names
+    } else if (parameterization == "defer_speedup_time_scaling") {
 
-  } else if (parameterization == "defer_speedup_time_scaling") {
+      # 2.3.1. Defer/speedup effect - changes in time scaling (kappa) --------------
 
-    # 2.3.1. Defer/speedup effect - changes in time scaling (kappa) --------------
+      # neutral frame: kappa = 1
+      params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["a"], x["t0"])
 
-    # neutral frame: kappa = 1
-    params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["a"], x["t0"])
+      # defer frame: kappa = 1
+      params[[2]] = c(x["alpha"], x["mu"], x["beta"], x["kappa2"], x["w"], x["a"], x["t0"])
 
-    # defer frame: kappa = 1
-    params[[2]] = c(x["alpha"], x["mu"], x["beta"], x["kappa2"], x["w"], x["a"], x["t0"])
+      # speedup frame: kappa = 1
+      params[[3]] = c(x["alpha"], x["mu"], x["beta"], x["kappa3"], x["w"], x["a"], x["t0"])
 
-    # speedup frame: kappa = 1
-    params[[3]] = c(x["alpha"], x["mu"], x["beta"], x["kappa3"], x["w"], x["a"], x["t0"])
+      names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
 
-    names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+    } else if (parameterization == "defer_speedup_time_scaling_t0") {
 
-  } else if (parameterization == "defer_speedup_time_scaling_t0") {
+      # 2.3.2. Defer/speedup effect - changes in time scaling (kappa) & t0 -------
 
-    # 2.3.2. Defer/speedup effect - changes in time scaling (kappa) & t0 -------
+      # neutral frame: kappa = 1
+      params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["a"], x["t01"])
 
-    # neutral frame: kappa = 1
-    params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["a"], x["t01"])
+      # defer frame: kappa = 1
+      params[[2]] = c(x["alpha"], x["mu"], x["beta"], x["kappa2"], x["w"], x["a"], x["t02"])
 
-    # defer frame: kappa = 1
-    params[[2]] = c(x["alpha"], x["mu"], x["beta"], x["kappa2"], x["w"], x["a"], x["t02"])
+      # speedup frame: kappa = 1
+      params[[3]] = c(x["alpha"], x["mu"], x["beta"], x["kappa3"], x["w"], x["a"], x["t03"])
 
-    # speedup frame: kappa = 1
-    params[[3]] = c(x["alpha"], x["mu"], x["beta"], x["kappa3"], x["w"], x["a"], x["t03"])
+      names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
 
-    names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+    } else if (parameterization == "defer_speedup_value_scaling") {
 
-  } else if (parameterization == "defer_speedup_value_scaling") {
+      # 2.4.1. Defer/speedup effect - changes in value scaling (mu) --------------
 
-    # 2.4.1. Defer/speedup effect - changes in value scaling (mu) --------------
+      # neutral frame: mu = 1
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
 
-    # neutral frame: mu = 1
-    params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
+      # defer frame: mu > 1 for
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
 
-    # defer frame: mu > 1 for
-    params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
+      # speedup frame: mu > 1 for
+      params[[3]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
 
-    # speedup frame: mu > 1 for
-    params[[3]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
+      names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+    } else if (parameterization == "defer_speedup_value_scaling_t0") {
 
-    names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
-  } else if (parameterization == "defer_speedup_value_scaling_t0") {
+      # 2.4.2. Defer/speedup effect - changes in value scaling (mu) & t0 ---------
 
-    # 2.4.2. Defer/speedup effect - changes in value scaling (mu) & t0 ---------
+      # neutral frame: mu = 1, t0 = t01
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["a"], x["t01"])
 
-    # neutral frame: mu = 1, t0 = t01
-    params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["a"], x["t01"])
+      # defer frame: mu > 1 for, t0 = t02
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["a"], x["t02"])
 
-    # defer frame: mu > 1 for, t0 = t02
-    params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["a"], x["t02"])
+      # speedup frame: mu > 1 for, t0 = t03
+      params[[3]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["a"], x["t03"])
 
-    # speedup frame: mu > 1 for, t0 = t03
-    params[[3]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["a"], x["t03"])
+      names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+    }
+  } else if (model == "DFT_C") {
+    if (parameterization == "one_condition") {
+      params = c(x["alpha"], x["mu"], x["beta"], x["kappa"], x["w"], x["theta_star"])
+      names(params) = parameter_names
 
-    names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+    } else if (parameterization == "date_delay_time_scaling") {
+
+      # 2.1.1. Date/delay effect - changes in time scaling (kappa) ---------------
+
+      # delay frame: kappa = 1
+      params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["theta_star"])
+
+      # date frame: kappa = kappa_loss < 1
+      params[[2]] = c(x["alpha"], x["mu"], x["beta"], x["kappa2"], x["w"], x["theta_star"])
+
+      names(params[[1]]) = names(params[[2]]) = parameter_names
+
+    } else if (parameterization == "date_delay_value_scaling") {
+
+      # 2.2.1. Date/delay effect - changes in value scaling (mu) -----------------
+
+      # delay frame: mu = 1
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["theta_star"])
+
+      # date frame: mu = mu_gain > 1
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["theta_star"])
+      names(params[[1]]) = names(params[[2]]) = parameter_names
+
+    } else if (parameterization == "defer_speedup_time_scaling") {
+
+      # 2.3.1. Defer/speedup effect - changes in time scaling (kappa) --------------
+
+      # neutral frame: kappa = 1
+      params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["theta_star"])
+
+      # defer frame: kappa = 1
+      params[[2]] = c(x["alpha"], x["mu"], x["beta"], x["kappa2"], x["w"], x["theta_star"])
+
+      # speedup frame: kappa = 1
+      params[[3]] = c(x["alpha"], x["mu"], x["beta"], x["kappa3"], x["w"], x["theta_star"])
+
+      names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+
+    } else if (parameterization == "defer_speedup_value_scaling") {
+
+      # 2.4.1. Defer/speedup effect - changes in value scaling (mu) --------------
+
+      # neutral frame: mu = 1
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["theta_star"])
+
+      # defer frame: mu > 1 for
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["theta_star"])
+
+      # speedup frame: mu > 1 for
+      params[[3]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["theta_star"])
+
+      names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+    }
+  } else if (model == "DFT_CRT") {
+    if (parameterization == "one_condition") {
+      params = c(x["alpha"], x["mu"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t0"])
+      names(params) = parameter_names
+
+    } else if (parameterization == "date_delay_time_scaling") {
+
+      # 2.1.1. Date/delay effect - changes in time scaling (kappa) ---------------
+
+      # delay frame: kappa = 1
+      params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["theta_star"], x["t0"])
+
+      # date frame: kappa = kappa_loss < 1
+      params[[2]] = c(x["alpha"], x["mu"], x["beta"], x["kappa2"], x["w"], x["theta_star"], x["t0"])
+
+      names(params[[1]]) = names(params[[2]]) = parameter_names
+
+    } else if (parameterization == "date_delay_time_scaling_t0") {
+
+      # 2.1.2. Date/delay effect - changes in time scaling (kappa) & t0 ----------
+
+      # delay frame: kappa = 1, t0 = t01
+      params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["theta_star"], x["t01"])
+
+      # date frame: kappa = kappa_loss < 1, t0 = t02
+      params[[2]] = c(x["alpha"], x["mu"], x["beta"], x["kappa2"], x["w"], x["theta_star"], x["t02"])
+
+      names(params[[1]]) = names(params[[2]]) = parameter_names
+
+    } else if (parameterization == "date_delay_value_scaling") {
+
+      # 2.2.1. Date/delay effect - changes in value scaling (mu) -----------------
+
+      # delay frame: mu = 1
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t0"])
+
+      # date frame: mu = mu_gain > 1
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t0"])
+      names(params[[1]]) = names(params[[2]]) = parameter_names
+
+    } else if (parameterization == "date_delay_value_scaling_t0") {
+
+      # 2.2.2. Date/delay effect - changes in value scaling (mu) & t0 ------------
+
+      # delay frame: mu = 1, t0 = t01
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t01"])
+
+      # date frame: mu = mu_gain > 1, t0 = t02
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t02"])
+      names(params[[1]]) = names(params[[2]]) = parameter_names
+
+    } else if (parameterization == "defer_speedup_time_scaling") {
+
+      # 2.3.1. Defer/speedup effect - changes in time scaling (kappa) --------------
+
+      # neutral frame: kappa = 1
+      params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["theta_star"], x["t0"])
+
+      # defer frame: kappa = 1
+      params[[2]] = c(x["alpha"], x["mu"], x["beta"], x["kappa2"], x["w"], x["theta_star"], x["t0"])
+
+      # speedup frame: kappa = 1
+      params[[3]] = c(x["alpha"], x["mu"], x["beta"], x["kappa3"], x["w"], x["theta_star"], x["t0"])
+
+      names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+
+    } else if (parameterization == "defer_speedup_time_scaling_t0") {
+
+      # 2.3.2. Defer/speedup effect - changes in time scaling (kappa) & t0 -------
+
+      # neutral frame: kappa = 1
+      params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["theta_star"], x["t01"])
+
+      # defer frame: kappa = 1
+      params[[2]] = c(x["alpha"], x["mu"], x["beta"], x["kappa2"], x["w"], x["theta_star"], x["t02"])
+
+      # speedup frame: kappa = 1
+      params[[3]] = c(x["alpha"], x["mu"], x["beta"], x["kappa3"], x["w"], x["theta_star"], x["t03"])
+
+      names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+
+    } else if (parameterization == "defer_speedup_value_scaling") {
+
+      # 2.4.1. Defer/speedup effect - changes in value scaling (mu) --------------
+
+      # neutral frame: mu = 1
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t0"])
+
+      # defer frame: mu > 1 for
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t0"])
+
+      # speedup frame: mu > 1 for
+      params[[3]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t0"])
+
+      names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+    } else if (parameterization == "defer_speedup_value_scaling_t0") {
+
+      # 2.4.2. Defer/speedup effect - changes in value scaling (mu) & t0 ---------
+
+      # neutral frame: mu = 1, t0 = t01
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t01"])
+
+      # defer frame: mu > 1 for, t0 = t02
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t02"])
+
+      # speedup frame: mu > 1 for, t0 = t03
+      params[[3]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t03"])
+
+      names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+    }
   }
 
   # 3. Return parameter values =================================================
@@ -1161,6 +1672,66 @@ itch_ddm <- function(stimuli, parameters, parameterization = "", frame = "", n =
   }
 }
 
+
+
+## ll_dft ################################################################
+#' Log-likelihood for decision field theory
+#'
+#' This is based on Junyi Dai's intertemporal choice code
+#'
+#' @export
+ll_dft <- function(x, stimuli, frame = "", observations, rt = TRUE) {
+
+  # 1. Unlist parameters =======================================================
+  x <- unlist(x)
+
+  # 2. Compute drift rate ======================================================
+  du <- compute_transformation_diffs(parameters = parameters,
+                                     stimuli = stimuli,
+                                     parameterization = parameterization,
+                                     frame = frame,
+                                     variable = 'du')
+
+  dp <- compute_transformation_diffs(parameters = parameters,
+                                     stimuli = stimuli,
+                                     parameterization = parameterization,
+                                     frame = frame,
+                                     variable = 'dp')
+
+  d <- unname(x["w"] * du - (1 - x["w"]) * dp)
+
+  # Probability of sampling from or attending to a specific attribute at any
+  # time is assumed to equal the corresponding attention weight. See Eq. 15 in
+  # Dai & Busemeyer
+  s = unname(sqrt(x["w"] * du^2 + (1 - x["w"]) * dp^2 - d^2))
+
+  # 3. Compute densities =======================================================
+  if (rt) {
+    densities <-
+      tryCatch(dft_dpd(d = d,
+                       s = s,
+                       theta = unname(x["theta_star"] * s),
+                       z = x["z"],
+                       response = observations$response,
+                       rtd = observations$rt - x["t0"]),
+               error = function(e) 0)
+  } else {
+    densities <-
+      tryCatch(dft_cp(d = d,
+                      s = s,
+                      theta = unname(x["theta_star"] * s),
+                      z = x["z"],
+                      response = observations$response),
+               error = function(e) 0)
+
+  }
+
+  if (any(densities == 0)) return(1e6)
+  return(-sum(log(densities)))
+
+}
+
+
 ## ll_diffusion ################################################################
 #' Log-likelihood for drift diffusion model
 #'
@@ -1189,16 +1760,6 @@ ll_diffusion <- function(x, stimuli, frame = "", observations) {
                                  a = x['a'],
                                  t0 = x['t0']),
              error = function(e) 0)
-
-  # densities <-
-  #   purrr::pmap_dbl(list(rt = observations$rt,
-  #                        response = observations$response,
-  #                        v = v
-  #                        ),
-  #                   .f = tryCatch(rtdists::ddiffusion, error = function(e) 0),
-  #                   a = x['a'],
-  #                   t0 = x['t0']
-  #                   )
 
   if (any(densities == 0)) return(1e6)
   return(-sum(log(densities)))
