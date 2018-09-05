@@ -719,7 +719,7 @@ get_par_names = function(model = "DFT_C", parameterization = "") {
            # - defer framing:
            # - speedup framing:
 
-           defer_speedup_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star"),
+           defer_speedup_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star")
 
          ),
        DFT_CRT =
@@ -751,7 +751,7 @@ get_par_names = function(model = "DFT_C", parameterization = "") {
            # - defer framing:
            # - speedup framing:
 
-           defer_speedup_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star"),
+           defer_speedup_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star")
 
          )
   )[[model]][[parameterization]]
