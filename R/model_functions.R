@@ -284,21 +284,45 @@ db_bin_choice_prob <- function(d, s, a, z) {
 dft_cp <- function(d, s, theta, z, response) {
 
   theta <- max(c(theta, 1e-4))
-  if (response == "lower") {
-    d <- -d
-    z <- -z
-  }
 
-  if (-4 * d * theta / s^2 > 500) {
-    cp <- .0001
-  } else {
-    if (d == 0) {
-      d = 1e-100
-    }
+  # Invert d and z when response is lower
+  d[response == "lower"] <- -d[response == "lower"]
 
-    cp <- expm1(-2 * d * (theta + z) / s^2) / expm1(-4 * d * theta / s^2)
-    cp <- max(min(cp, .9999), .0001)
-  }
+  zvec = numeric(length(response))
+  zvec[response == "lower"] <- -z
+  zvec[response == "upper"] <- z
+
+  # Make vector for storing probabilities
+  cp = numeric(length(response))
+
+  # Set probability density of unlikely responses to 0.001
+  unlikely <- -4 * d * theta / s^2 > 500
+  cp[unlikely] <- 0.001
+
+  d[d == 0] <- 1e-100
+
+  # Compute probability densities for likely responses
+  cp[!unlikely] <-
+    expm1(-2 * d[!unlikely] * (theta + zvec[!unlikely]) / s[!unlikely]^2) /
+    expm1(-4 * d[!unlikely] * theta / s[!unlikely]^2)
+
+  # Make sure that cp cannot be 1 or 0
+  cp[cp > 0.9999] = 0.9999
+  cp[cp < 0.0001] = 0.0001
+
+  # if (-4 * d * theta / s^2 > 500) {
+  #   cp <- .0001
+  # } else {
+  #
+  #   if (d == 0) {
+  #     d = 1e-100
+  #   }
+  #
+  #   cp <- expm1(-2 * d * (theta + z) / s^2) / expm1(-4 * d * theta / s^2)
+  #   cp <- max(min(cp, .9999), .0001)
+  # }
+
+  return(cp)
 
 }
 
@@ -1686,13 +1710,13 @@ ll_dft <- function(x, stimuli, frame = "", observations, rt = TRUE) {
   x <- unlist(x)
 
   # 2. Compute drift rate ======================================================
-  du <- compute_transformation_diffs(parameters = parameters,
+  du <- compute_transformation_diffs(parameters = x,
                                      stimuli = stimuli,
                                      parameterization = parameterization,
                                      frame = frame,
                                      variable = 'du')
 
-  dp <- compute_transformation_diffs(parameters = parameters,
+  dp <- compute_transformation_diffs(parameters = x,
                                      stimuli = stimuli,
                                      parameterization = parameterization,
                                      frame = frame,
@@ -1711,18 +1735,23 @@ ll_dft <- function(x, stimuli, frame = "", observations, rt = TRUE) {
       tryCatch(dft_dpd(d = d,
                        s = s,
                        theta = unname(x["theta_star"] * s),
-                       z = x["z"],
+                       z = 0,
                        response = observations$response,
                        rtd = observations$rt - x["t0"]),
                error = function(e) 0)
   } else {
     densities <-
-      tryCatch(dft_cp(d = d,
-                      s = s,
-                      theta = unname(x["theta_star"] * s),
-                      z = x["z"],
-                      response = observations$response),
-               error = function(e) 0)
+      dft_cp(d = d,
+             s = s,
+             theta = unname(x["theta_star"] * s),
+             z = 0,
+             response = observations$response)
+      # tryCatch(dft_cp(d = d,
+      #                 s = s,
+      #                 theta = unname(x["theta_star"] * s),
+      #                 z = 0,
+      #                 response = observations$response),
+      #          error = function(e) 0)
 
   }
 
