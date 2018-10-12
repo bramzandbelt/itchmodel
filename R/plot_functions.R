@@ -511,7 +511,7 @@ plot_model_fit_to_data <- function(df, params, model_name = "", parameterization
 #' @param stim Stimuli
 summarize_stimuli <- function(stim) {
   stim %>%
-    dplyr::group_by(t_l, m_ss_type) %>%
+    dplyr::group_by(t_l, m_s_cat) %>%
     dplyr::summarize(m_s = mean(m_s),
                      m_l = mean(m_l)
     )
@@ -527,7 +527,7 @@ summarize_observations <- function(stim, obs) {
                                                "upper" = 1,
                                                "lower" = 0)
     ) %>%
-    dplyr::group_by(t_l, m_ss_type) %>%
+    dplyr::group_by(t_l, m_s_cat) %>%
     dplyr::summarize(m_s = mean(m_s),
                      p_ll = mean(response_int),
                      mean_rt = mean(rt)
@@ -540,7 +540,7 @@ summarize_observations <- function(stim, obs) {
 #' @param obs Observations
 summarize_predictions <- function(stim, prd) {
   dplyr::bind_cols(stim, prd) %>%
-    dplyr::group_by(t_l, m_ss_type) %>%
+    dplyr::group_by(t_l, m_s_cat) %>%
     dplyr::summarize(m_s = mean(m_s),
                      p_ll = mean(p_ll),
                      mean_rt = mean(rt)
@@ -556,12 +556,19 @@ summarize_predictions <- function(stim, prd) {
 get_model_predictions <- function(x, stim, frame = "", parameterization = "") {
 
   v <-
-    itchmodel::itch_ddm(stimuli = stim,
-                        parameters = x,
-                        parameterization = parameterization,
-                        frame = frame,
-                        sim_fun = "rtdists_package") %>%
-    dplyr::pull(v)
+    compute_drift_rate(parameters = x,
+                       stimuli = stim,
+                       parameterization = parameterization,
+                       frame = frame)
+
+
+  # v <-
+  #   itchmodel::itch_ddm(stimuli = stim,
+  #                       parameters = x,
+  #                       parameterization = parameterization,
+  #                       frame = frame,
+  #                       sim_fun = "rtdists_package") %>%
+  #   dplyr::pull(v)
 
   # Let's do this using Dai & Busemeyer's method, which gives identical probabilities as rtdists::pdiffusion, but
   # is faster

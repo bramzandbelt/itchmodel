@@ -363,7 +363,7 @@ define_expt_trials <- function(ip_data, parameterization, n_staircase_trials, n_
                                  )
                   )
     ) %>%
-    tidyr::gather(key = "m_ss_type", value = "m_ss", below, around, above) %>%
+    tidyr::gather(key = "m_s_cat", value = "m_ss", below, around, above) %>%
     dplyr::arrange(t_ll, m_ss) %>%
     dplyr::rename(t_l = t_ll,
                   m_s = m_ss) %>%
@@ -373,7 +373,7 @@ define_expt_trials <- function(ip_data, parameterization, n_staircase_trials, n_
     ) %>%
     dplyr::mutate(m_l = m_ll,
                   t_s = t_ss) %>%
-    dplyr::select(frame, m_s, t_s, m_l, t_l, m_ss_type)
+    dplyr::select(frame, m_s, t_s, m_l, t_l, m_s_cat)
 
 }
 
