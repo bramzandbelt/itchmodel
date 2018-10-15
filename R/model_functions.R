@@ -502,7 +502,7 @@ get_fit_stats <- function(optim_output, model = "", parameterization = "", n_dat
   tibble::tibble(model = model,
                  parameterization = parameterization,
                  n_iter = optim_output$iter,
-                 converged = ifelse(optim_out_gen_model$convergence == 0, "TRUE", "FALSE"),
+                 converged = ifelse(optim_output$convergence == 0, "TRUE", "FALSE"),
                  bestval = optim_output$value,
                  LL = LL,
                  AIC = -2 * LL + 2 * n_free_param,
