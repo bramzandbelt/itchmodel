@@ -871,7 +871,7 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
   # SR_JEPLMC_2013 - Scholten & Read, J Exp Psychol Learn Mem Cogn, 2013, p. 1197
   # rtdists - documentation accompanying the R package rtdists
 
-  if (bound_setting = "standard") {
+  if (bound_setting == "standard") {
 
     lowers = list('alpha' = .01, # DB_JEPG_2014
                   'mu' = 1, # SR_JEPLMC_2013
@@ -901,7 +901,7 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                   "theta_star" = 100 # DB_JEPG_2014
     )
 
-  } else if (bound_setting = "wide") {
+  } else if (bound_setting == "wide") {
 
     # Wider bounds for alpha, beta, w
 
