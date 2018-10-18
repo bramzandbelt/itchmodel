@@ -910,8 +910,8 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
 
     lowers = list('alpha' = .01, # DB_JEPG_2014
                   'mu' = 1, # SR_JEPLMC_2013
-                  'mu_gain' = .01,
-                  'mu_loss' = .01, # SR_JEPLMC_2013
+                  'mu_gain' = 0,
+                  'mu_loss' = 0, # SR_JEPLMC_2013
                   'beta' = .01, # DB_JEPG_2014
                   'kappa' = 1, # SR_JEPLMC_2013
                   'kappa_gain' = 0.01,
@@ -924,8 +924,8 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
 
     uppers = list('alpha' = 3, # DB_JEPG_2014
                   'mu' = 1, #
-                  'mu_gain' = 3,
-                  'mu_loss' = 3, # SR_JEPLMC_2013
+                  'mu_gain' = 10,
+                  'mu_loss' = 10, # SR_JEPLMC_2013
                   'beta' = 3, # DB_JEPG_2014
                   'kappa' = 1, # SR_JEPLMC_2013
                   'kappa_gain' = 3,
