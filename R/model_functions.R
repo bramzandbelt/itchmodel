@@ -902,7 +902,6 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
     )
 
   } else if (bound_setting == "wide") {
-
     # Wider bounds for alpha, beta, w
 
     lowers = list('alpha' = .01, # DB_JEPG_2014
@@ -932,6 +931,9 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                   "t0" = 3, # DB_JEPG_2014 (data in Table 10); N.B. uppers identical across different parameterizations
                   "theta_star" = 100 # DB_JEPG_2014
     )
+
+  }
+
 
   # Put in a vector
   l <- unlist(lowers)
