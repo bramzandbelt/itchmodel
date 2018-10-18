@@ -863,7 +863,7 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
 #' @inheritParams fit_model
 #' @param bound bound for which to obtain values, either "lower" or "upper"
 #' @export
-get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower", strict = TRUE) {
+get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower", bound_setting = "standard") {
 
   # 1. Define lower and upper bounds for all parameters ========================
   # Values are based on the following sources:
@@ -871,7 +871,7 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
   # SR_JEPLMC_2013 - Scholten & Read, J Exp Psychol Learn Mem Cogn, 2013, p. 1197
   # rtdists - documentation accompanying the R package rtdists
 
-  if (strict) {
+  if (bound_setting = "standard") {
 
     lowers = list('alpha' = .01, # DB_JEPG_2014
                   'mu' = 1, # SR_JEPLMC_2013
@@ -901,22 +901,19 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                   "theta_star" = 100 # DB_JEPG_2014
     )
 
-  } else {
+  } else if (bound_setting = "wide") {
 
-    # Loose bounds can be helpful if participants show opposite framing effects
-    # (e.g. more LL choices on delay than date frames) or when best-fitting
-    # parameter values are at bounds. The model can than be fit with the
-    # following bounds in order to see whether this improves the fit to the data
+    # Wider bounds for alpha, beta, w
 
     lowers = list('alpha' = .01, # DB_JEPG_2014
                   'mu' = 1, # SR_JEPLMC_2013
-                  'mu_gain' = .5,
-                  'mu_loss' = .5, # SR_JEPLMC_2013
+                  'mu_gain' = 1,
+                  'mu_loss' = 1, # SR_JEPLMC_2013
                   'beta' = .01, # DB_JEPG_2014
                   'kappa' = 1, # SR_JEPLMC_2013
                   'kappa_gain' = 0,
-                  'kappa_loss' = 0.5,
-                  'w' = 0.01, # DB_JEPG_2014
+                  'kappa_loss' = 1,
+                  'w' = 0.02, # DB_JEPG_2014
                   "a" = 0.1, # Adjusted by BBZ; rtdists: 0.5
                   "t0" = 0.05, # rtdists; N.B. lowers identical across different parameterizations
                   "theta_star" = 0.01 # DB_JEPG_2014
@@ -924,20 +921,17 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
 
     uppers = list('alpha' = 3, # DB_JEPG_2014
                   'mu' = 1, #
-                  'mu_gain' = 10,
-                  'mu_loss' = 10, # SR_JEPLMC_2013
+                  'mu_gain' = 3,
+                  'mu_loss' = 3, # SR_JEPLMC_2013
                   'beta' = 3, # DB_JEPG_2014
                   'kappa' = 1, # SR_JEPLMC_2013
-                  'kappa_gain' = 2,
+                  'kappa_gain' = 1,
                   'kappa_loss' = 10, # guess
-                  'w' = 0.99, # DB_JEPG_2014
+                  'w' = 0.98, # DB_JEPG_2014
                   "a" = 10, # Adjusted by BBZ; rtdists: 2
                   "t0" = 3, # DB_JEPG_2014 (data in Table 10); N.B. uppers identical across different parameterizations
                   "theta_star" = 100 # DB_JEPG_2014
     )
-  }
-
-
 
   # Put in a vector
   l <- unlist(lowers)
