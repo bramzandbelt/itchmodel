@@ -910,12 +910,12 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
 
     lowers = list('alpha' = .01, # DB_JEPG_2014
                   'mu' = 1, # SR_JEPLMC_2013
-                  'mu_gain' = .01,
-                  'mu_loss' = .01, # SR_JEPLMC_2013
+                  'mu_gain' = .5,
+                  'mu_loss' = .5, # SR_JEPLMC_2013
                   'beta' = .01, # DB_JEPG_2014
                   'kappa' = 1, # SR_JEPLMC_2013
-                  'kappa_gain' = 0.01,
-                  'kappa_loss' = 0.01,
+                  'kappa_gain' = 0,
+                  'kappa_loss' = 0.5,
                   'w' = 0.01, # DB_JEPG_2014
                   "a" = 0.1, # Adjusted by BBZ; rtdists: 0.5
                   "t0" = 0.05, # rtdists; N.B. lowers identical across different parameterizations
@@ -928,8 +928,8 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                   'mu_loss' = 10, # SR_JEPLMC_2013
                   'beta' = 3, # DB_JEPG_2014
                   'kappa' = 1, # SR_JEPLMC_2013
-                  'kappa_gain' = 3,
-                  'kappa_loss' = 3, # guess
+                  'kappa_gain' = 2,
+                  'kappa_loss' = 10, # guess
                   'w' = 0.99, # DB_JEPG_2014
                   "a" = 10, # Adjusted by BBZ; rtdists: 2
                   "t0" = 3, # DB_JEPG_2014 (data in Table 10); N.B. uppers identical across different parameterizations
