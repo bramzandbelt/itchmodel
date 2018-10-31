@@ -560,33 +560,66 @@ get_log_likelihood = function(x, data, model = "DFT_C", parameterization = "") {
   ll <- 0
 
   if (model == "DFT_C") {
-    for (i_cond in 1:length(params)) {
+
+    if (parameterization == "one_condition") {
       ll <-
         ll +
-        ll_dft(x = params[[i_cond]],
-               stimuli = data$stimuli[[i_cond]],
-               frame = data$frame[[i_cond]],
-               observations = data$observations[[i_cond]],
+        ll_dft(x = params,
+               stimuli = data$stimuli,
+               frame = data$frame,
+               observations = data$observations,
                rt = FALSE)
+    } else {
+      for (i_cond in 1:length(params)) {
+        ll <-
+          ll +
+          ll_dft(x = params[[i_cond]],
+                 stimuli = data$stimuli[[i_cond]],
+                 frame = data$frame[[i_cond]],
+                 observations = data$observations[[i_cond]],
+                 rt = FALSE)
+      }
     }
+
+
   } else if (model == "DFT_CRT") {
-    for (i_cond in 1:length(params)) {
+    if (parameterization == "one_condition") {
       ll <-
         ll +
-        ll_dft(x = params[[i_cond]],
-               stimuli = data$stimuli[[i_cond]],
-               frame = data$frame[[i_cond]],
-               observations = data$observations[[i_cond]],
+        ll_dft(x = params,
+               stimuli = data$stimuli,
+               frame = data$frame,
+               observations = data$observations,
                rt = TRUE)
+    } else {
+      for (i_cond in 1:length(params)) {
+        ll <-
+          ll +
+          ll_dft(x = params[[i_cond]],
+                 stimuli = data$stimuli[[i_cond]],
+                 frame = data$frame[[i_cond]],
+                 observations = data$observations[[i_cond]],
+                 rt = TRUE)
+      }
     }
   } else if (model == "DDM") {
-    for (i_cond in 1:length(params)) {
+    if (parameterization == "one_condition") {
       ll <-
         ll +
-        ll_diffusion(x = params[[i_cond]],
-                     stimuli = data$stimuli[[i_cond]],
-                     frame = data$frame[[i_cond]],
-                     observations = data$observations[[i_cond]])
+        ll_diffusion(x = params,
+                     stimuli = data$stimuli,
+                     frame = data$frame,
+                     observations = data$observations,
+                     rt = TRUE)
+    } else {
+      for (i_cond in 1:length(params)) {
+        ll <-
+          ll +
+          ll_diffusion(x = params[[i_cond]],
+                       stimuli = data$stimuli[[i_cond]],
+                       frame = data$frame[[i_cond]],
+                       observations = data$observations[[i_cond]])
+      }
     }
   }
 
