@@ -609,8 +609,7 @@ get_log_likelihood = function(x, data, model = "DFT_C", parameterization = "") {
         ll_diffusion(x = params,
                      stimuli = data$stimuli,
                      frame = data$frame,
-                     observations = data$observations,
-                     rt = TRUE)
+                     observations = data$observations)
     } else {
       for (i_cond in 1:length(params)) {
         ll <-
