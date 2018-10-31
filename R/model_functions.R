@@ -565,9 +565,9 @@ get_log_likelihood = function(x, data, model = "DFT_C", parameterization = "") {
       ll <-
         ll +
         ll_dft(x = params,
-               stimuli = data$stimuli,
-               frame = data$frame,
-               observations = data$observations,
+               stimuli = data$stimuli[[1]],
+               frame = data$frame[[1]],
+               observations = data$observations[[1]],
                rt = FALSE)
     } else {
       for (i_cond in 1:length(params)) {
@@ -587,9 +587,9 @@ get_log_likelihood = function(x, data, model = "DFT_C", parameterization = "") {
       ll <-
         ll +
         ll_dft(x = params,
-               stimuli = data$stimuli,
-               frame = data$frame,
-               observations = data$observations,
+               stimuli = data$stimuli[[1]],
+               frame = data$frame[[1]],
+               observations = data$observations[[1]],
                rt = TRUE)
     } else {
       for (i_cond in 1:length(params)) {
@@ -607,9 +607,9 @@ get_log_likelihood = function(x, data, model = "DFT_C", parameterization = "") {
       ll <-
         ll +
         ll_diffusion(x = params,
-                     stimuli = data$stimuli,
-                     frame = data$frame,
-                     observations = data$observations)
+                     stimuli = data$stimuli[[1]],
+                     frame = data$frame[[1]],
+                     observations = data$observations[[1]])
     } else {
       for (i_cond in 1:length(params)) {
         ll <-
