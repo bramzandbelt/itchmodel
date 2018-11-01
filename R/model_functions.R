@@ -952,8 +952,8 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                   'kappa' = 1, # SR_JEPLMC_2013
                   'kappa_gain' = 0,
                   'kappa_loss' = 1,
-                  'w' = 0.02, # DB_JEPG_2014
-                  "a" = 0.1, # Adjusted by BBZ; rtdists: 0.5
+                  'w' = 0.02,
+                  "a" = 0.001, # Adjusted by BBZ; rtdists: 0.5
                   "t0" = 0.05, # rtdists; N.B. lowers identical across different parameterizations
                   "theta_star" = 0.01 # DB_JEPG_2014
     )
