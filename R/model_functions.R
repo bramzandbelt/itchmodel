@@ -512,7 +512,6 @@ get_fit_stats <- function(optim_output, algorithm = "DEoptimR", model = "", para
                  parameterization = parameterization,
                  n_iter = n_iter,
                  converged = converged,
-                 bestval = optim_output$value,
                  LL = LL,
                  AIC = -2 * LL + 2 * n_free_param,
                  BIC = -2 * LL + log(n_data_points) * n_free_param
