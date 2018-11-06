@@ -283,7 +283,8 @@ db_bin_choice_prob <- function(d, s, a, z) {
 #'
 dft_cp <- function(d, s, theta, z, response) {
 
-  theta <- max(c(theta, 1e-4))
+  # Replace theta's with unlikely low values
+  theta[theta < 1e-4] <- 1e-4
 
   # Invert d and z when response is lower
   d[response == "lower"] <- -d[response == "lower"]
