@@ -944,7 +944,7 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                   'kappa' = 1, # SR_JEPLMC_2013
                   'kappa_gain' = 0,
                   'kappa_loss' = 1,
-                  'w' = 0.05, # DB_JEPG_2014
+                  'w' = 0.001, # DB_JEPG_2014 & SR_JEPLMC_2013; note that w is primarily a scaling parameter
                   "a" = 0.1, # Adjusted by BBZ; rtdists: 0.5
                   "t0" = 0.05, # rtdists; N.B. lowers identical across different parameterizations
                   "theta_star" = 0.01 # DB_JEPG_2014
@@ -958,7 +958,7 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                   'kappa' = 1, # SR_JEPLMC_2013
                   'kappa_gain' = 1,
                   'kappa_loss' = 10, # guess
-                  'w' = 0.95, # DB_JEPG_2014
+                  'w' = 1 - 0.001, # DB_JEPG_2014 & SR_JEPLMC_2013; note that w is primarily a scaling parameter
                   "a" = 10, # Adjusted by BBZ; rtdists: 2
                   "t0" = 3, # DB_JEPG_2014 (data in Table 10); N.B. uppers identical across different parameterizations
                   "theta_star" = 100 # DB_JEPG_2014
