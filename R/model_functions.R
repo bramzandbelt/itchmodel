@@ -864,7 +864,7 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
 
   # 4.1. The costs of waiting cannot be greater than the benefits associated with the large reward:
   # (1 - w) * (p_ll - p_ss) - w * u_ll <= 0
-  for (i_frame in length(frames)) {
+  for (i_frame in seq(length(frames))) {
 
     frame <- frames[i_frame]
     params <- unlist(x_named[i_frame])
