@@ -970,12 +970,12 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
 
     lowers = list('alpha' = .01, # DB_JEPG_2014
                   'mu' = 1, # SR_JEPLMC_2013
-                  'mu_gain' = 1,
-                  'mu_loss' = 1, # SR_JEPLMC_2013
+                  'mu_gain' = 0, # This allows fitting when people choose LL more often on defer than speedup frames
+                  'mu_loss' = 0, # This allows fitting when people choose LL more often on defer than speedup frames
                   'beta' = .01, # DB_JEPG_2014
                   'kappa' = 1, # SR_JEPLMC_2013
                   'kappa_gain' = 0,
-                  'kappa_loss' = 1,
+                  'kappa_loss' = 0,
                   'w' = 0.001, # DB_JEPG_2014 & SR_JEPLMC_2013; note that w is primarily a scaling parameter
                   "a" = 0.001, # Adjusted by BBZ; rtdists: 0.5
                   "t0" = 0.05, # rtdists; N.B. lowers identical across different parameterizations
@@ -988,7 +988,7 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                   'mu_loss' = 3, # SR_JEPLMC_2013
                   'beta' = 3, # DB_JEPG_2014
                   'kappa' = 1, # SR_JEPLMC_2013
-                  'kappa_gain' = 1,
+                  'kappa_gain' = 10,
                   'kappa_loss' = 10, # guess
                   'w' = 1 - 0.001, # DB_JEPG_2014 & SR_JEPLMC_2013; note that w is primarily a scaling parameter
                   "a" = 10, # Adjusted by BBZ; rtdists: 2
