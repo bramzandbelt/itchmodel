@@ -869,6 +869,7 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
     params <- unlist(x_named[i_frame])
     stimuli <- data$stimuli[data$frame == frame][[1]]
 
+    # When SS amount is 0, choose LL, irrespective of delay
     lineq <- c(lineq,
                (1 - params['w']) *
                  (compute_transformation(q = stimuli$t_l,
@@ -886,7 +887,29 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
                                         frame = frame)
                )
 
-
+    # When SS and LL amounts are equal, choose SS
+    lineq <- c(lineq,
+               params['w'] *
+                 (compute_transformation(q = stimuli$m_l,
+                                         parameters = params,
+                                         variable = 'u_ll',
+                                         frame = frame) -
+                    compute_transformation(q = stimuli$m_l,
+                                           parameters = params,
+                                           variable = 'u_ss',
+                                           frame = frame)
+                  ) -
+                 (1 - params['w']) *
+                 (compute_transformation(q = stimuli$t_l,
+                                         parameters = params,
+                                         variable = 'p_ll',
+                                         frame = frame) -
+                    compute_transformation(q = stimuli$t_s,
+                                           parameters = params,
+                                           variable = 'p_ss',
+                                           frame = frame)
+                  )
+    )
 
   }
 
