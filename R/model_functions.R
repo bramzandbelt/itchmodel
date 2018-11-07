@@ -852,65 +852,122 @@ get_n_free_param = function(model = "DFT_C", parameterization = "") {
 #' @export
 get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization = "") {
 
-  # 1. Get parameter values ====================================================
+  # Formulate subfunction for computing probabilities of choosing LL option
+  comp_p_ll <- function(parameters, model, du, dp, d, errorval) {
+
+    if (model == "DDM") {
+
+      p_ll <-
+        tryCatch(rtdists::pdiffusion(rt = rep(Inf, length(d)),
+                                     response = rep("upper", length(d)),
+                                     a = parameters["a"],
+                                     v = d_1,
+                                     t0 = parameters["t0"],
+                                     s = 0.1,
+                                     z = 0.5 * parameters["a"]),
+                 error = function(e) errorval)
+
+    } else if (model %in% c("DFT_C", "DFT_CRT")) {
+
+      # Probability of sampling from or attending to a specific attribute at any
+      # time is assumed to equal the corresponding attention weight. See Eq. 15 in
+      # Dai & Busemeyer
+      s = unname(sqrt(parameters["w"] * du^2 + (1 - parameters["w"]) * dp^2 - d^2))
+
+      p_ll <-
+        tryCatch(dft_cp(d = d,
+                        s = s,
+                        theta = unname(parameters["theta_star"] * s),
+                        z = 0,
+                        response = rep("upper", length(d))
+        ),
+        error = function(e) errorval)
+
+    }
+
+    return(p_ll)
+  }
+
+  # Get parameter values =======================================================
   x_named <- get_par_values(x, model = model, parameterization = parameterization)
 
-  # 2. Get frames ==============================================================
+  # Get frames =================================================================
   frames <- as.character(data$frame)
 
-  # 4. Formulate linear inequalities ===========================================
-
+  # Formulate linear inequalities ==============================================
   lineq <- double()
 
-  # 4.1. The costs of waiting cannot be greater than the benefits associated with the large reward:
-  # (1 - w) * (p_ll - p_ss) - w * u_ll <= 0
+
+
+
   for (i_frame in seq(length(frames))) {
 
     frame <- frames[i_frame]
-    params <- unlist(x_named[i_frame])
+    parameters <- unlist(x_named[i_frame])
     stimuli <- data$stimuli[data$frame == frame][[1]]
 
-    # When SS amount is 0, choose LL, irrespective of delay
-    lineq <- c(lineq,
-               (1 - params['w']) *
-                 (compute_transformation(q = stimuli$t_l,
-                                         parameters = params,
-                                         variable = 'p_ll',
-                                         frame = frame) -
-                    compute_transformation(q = stimuli$t_s,
-                                           parameters = params,
-                                           variable = 'p_ss',
-                                           frame = frame)) -
-                 params['w'] *
-                 compute_transformation(q = stimuli$m_l,
-                                        parameters = params,
-                                        variable = 'u_ll',
-                                        frame = frame)
-               )
+    # Constraint 1: When SS amount is 0, P(choose LL) >= 0.99 ------------------
+    p_crit_1 <- 0.99
 
-    # When SS and LL amounts are equal, choose SS
-    lineq <- c(lineq,
-               params['w'] *
-                 (compute_transformation(q = stimuli$m_l,
-                                         parameters = params,
-                                         variable = 'u_ll',
-                                         frame = frame) -
-                    compute_transformation(q = stimuli$m_l,
-                                           parameters = params,
-                                           variable = 'u_ss',
-                                           frame = frame)
-                  ) -
-                 (1 - params['w']) *
-                 (compute_transformation(q = stimuli$t_l,
-                                         parameters = params,
-                                         variable = 'p_ll',
-                                         frame = frame) -
-                    compute_transformation(q = stimuli$t_s,
-                                           parameters = params,
-                                           variable = 'p_ss',
-                                           frame = frame)
-                  )
-    )
+    du_1 <-
+      compute_transformation(q = stimuli$m_l,
+                             parameters = parameters,
+                             variable = 'u_ll',
+                             frame = frame) -
+      compute_transformation(q = rep(0,length(stimuli$m_l)),
+                             parameters = parameters,
+                             variable = 'u_ss',
+                             frame = frame)
+
+    dp_1 <-
+      compute_transformation(q = stimuli$t_l,
+                             parameters = parameters,
+                             variable = 'p_ll',
+                             frame = frame) -
+      compute_transformation(q = stimuli$t_s,
+                             parameters = parameters,
+                             variable = 'p_ss',
+                             frame = frame)
+
+    d_1 <- unname(parameters["w"] * du_1 - (1 - parameters["w"]) * dp_1)
+
+    p_ll_1 <-
+      comp_p_ll(parameters, model, du = du_1, dp = dp_1, d = d_1, errorval = 0)
+
+    # P(LL) >= p_crit_1 for all trials
+    lineq <- c(lineq, p_crit_1 - p_ll_1)
+
+    # Constraint 2: When SS and LL amounts are equal, P(choose LL) <= 0.01 -----
+    p_crit_2 <- 0.01
+
+    du_2 <-
+      compute_transformation(q = stimuli$m_l,
+                             parameters = parameters,
+                             variable = 'u_ll',
+                             frame = frame) -
+      compute_transformation(q = stimuli$m_l,
+                             parameters = parameters,
+                             variable = 'u_ss',
+                             frame = frame)
+
+    dp_2 <-
+      compute_transformation(q = stimuli$t_l,
+                             parameters = parameters,
+                             variable = 'p_ll',
+                             frame = frame) -
+      compute_transformation(q = stimuli$t_s,
+                             parameters = parameters,
+                             variable = 'p_ss',
+                             frame = frame)
+
+    d_2 <- unname(parameters["w"] * du_2 - (1 - parameters["w"]) * dp_2)
+
+
+    p_ll_2 <-
+      comp_p_ll(parameters, model, du = du_2, dp = dp_2, d = d_2, errorval = 1)
+
+    # P(LL) >= p_crit_1 for all trials
+    lineq <- c(lineq, p_ll_2 - p_crit_2)
 
   }
 
