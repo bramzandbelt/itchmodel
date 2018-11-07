@@ -863,7 +863,7 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
                                      a = parameters["a"],
                                      v = d_1,
                                      t0 = parameters["t0"],
-                                     s = 0.1,
+                                     s = 1,
                                      z = 0.5 * parameters["a"]),
                  error = function(e) errorval)
 
@@ -1845,7 +1845,7 @@ itch_ddm <- function(stimuli, parameters, parameterization = "", frame = "", n =
     purrr::map_df(.x = v,
                   .f = rtdists::rdiffusion,
                   n = n,
-                  s = 0.1,
+                  s = 1, # This is the default in the rtdists package, see documentation
                   a = x['a'],
                   t0 = x['t0']
     ) %>%
@@ -1942,7 +1942,7 @@ ll_diffusion <- function(x, stimuli, frame = "", observations) {
     tryCatch(rtdists::ddiffusion(rt = observations$rt,
                                  response = observations$response,
                                  v = v,
-                                 s = 0.1,
+                                 s = 1,
                                  a = x['a'],
                                  t0 = x['t0']),
              error = function(e) 0)
