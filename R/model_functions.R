@@ -1912,6 +1912,9 @@ ll_dft <- function(x, stimuli, frame = "", observations, rt = TRUE) {
 
   }
 
+  # Replace any NA values to prevent that the next line returns an error
+  densities[is.na(densities)] <- 0
+
   if (any(densities == 0)) return(1e6)
   return(-sum(log(densities)))
 
@@ -1946,6 +1949,9 @@ ll_diffusion <- function(x, stimuli, frame = "", observations) {
                                  a = x['a'],
                                  t0 = x['t0']),
              error = function(e) 0)
+
+  # Replace any NA values to prevent that the next line returns an error
+  densities[is.na(densities)] <- 0
 
   if (any(densities == 0)) return(1e6)
   return(-sum(log(densities)))
