@@ -1898,17 +1898,17 @@ ll_dft <- function(x, stimuli, frame = "", observations, rt = TRUE) {
                error = function(e) 0)
   } else {
     densities <-
-      dft_cp(d = d,
-             s = s,
-             theta = unname(x["theta_star"] * s),
-             z = 0,
-             response = observations$response)
-      # tryCatch(dft_cp(d = d,
-      #                 s = s,
-      #                 theta = unname(x["theta_star"] * s),
-      #                 z = 0,
-      #                 response = observations$response),
-      #          error = function(e) 0)
+      # dft_cp(d = d,
+      #        s = s,
+      #        theta = unname(x["theta_star"] * s),
+      #        z = 0,
+      #        response = observations$response)
+      tryCatch(dft_cp(d = d,
+                      s = s,
+                      theta = unname(x["theta_star"] * s),
+                      z = 0,
+                      response = observations$response),
+               error = function(e) 0)
 
   }
 
