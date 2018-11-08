@@ -855,10 +855,10 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
   # Formulate subfunction for computing probabilities of choosing LL option
   comp_p_ll <- function(parameters, model, du, dp, d, errorval) {
 
-    resp <- rep("upper", length(d))
-    resp[d < 0] <- "lower"
-
     if (model == "DDM") {
+
+      resp <- rep("upper", length(d))
+      resp[d < 0] <- "lower"
 
       p_ll <-
         tryCatch(rtdists::pdiffusion(rt = rep(Inf, length(d)),
@@ -882,7 +882,7 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
                         s = s,
                         theta = unname(parameters["theta_star"] * s),
                         z = 0,
-                        response = resp
+                        response = rep("upper", length(d))
         ),
         error = function(e) errorval)
 
