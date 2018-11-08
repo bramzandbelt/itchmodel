@@ -888,6 +888,9 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
 
     }
 
+    # Replace NaNs, if any; otherwise DEoptimR crashes
+    p_ll[is.na(p_ll)] <- errorval
+
     return(p_ll)
   }
 
