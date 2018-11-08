@@ -790,33 +790,33 @@ get_par_names = function(model = "DFT_C", parameterization = "") {
        DFT_CRT =
          list(
            # 1.1. One condition ------------------------------------------------
-           one_condition = c("alpha", "mu", "beta", "kappa", "w", "theta_star"),
+           one_condition = c("alpha", "mu", "beta", "kappa", "w", "theta_star", "t0"),
 
            # 1.2.1. Date/delay effect - changes in time scaling (kappa) ----------
            # - delay framing: kappa = 1
            # - date framing: kappa = kappa_loss < 1
 
-           date_delay_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "w", "theta_star"),
+           date_delay_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "w", "theta_star", "t0"),
 
            # 1.3.1. Date/delay effect - changes in value scaling (mu) ----------
            # - delay framing: mu = 1
            # - date framing: mu = mu_gain > 1
 
-           date_delay_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star"),
+           date_delay_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star", "t0"),
 
            # 1.4.1. Defer/speedup effect - changes in time scaling (kappa) -----
            # - neutral framing: kappa = 1
            # - defer framing: kappa > 1 (over-responsive to deferrals)
            # - speedup framing: kappa < 1 (under-responsive to speedups)
 
-           defer_speedup_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "kappa3", "w", "theta_star"),
+           defer_speedup_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "kappa3", "w", "theta_star", "t0"),
 
            # 1.5.1. Defer/speedup effect - changes in value scaling (mu) -------
            # - neutral framing:
            # - defer framing:
            # - speedup framing:
 
-           defer_speedup_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star")
+           defer_speedup_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star", "t0")
 
          )
   )[[model]][[parameterization]]
