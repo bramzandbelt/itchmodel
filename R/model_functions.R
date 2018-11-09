@@ -166,13 +166,13 @@ compute_transformation <- function(q, parameters, variable, frame = "") {
 
       unname(convert(q, type = 'power', param = c(x['alpha'], 1)))
 
-    } else if (frame == 'defer') {
+    } else if (frame %in% c('defer', 'delay', 'date')) {
 
       unname(convert(q, type = 'power', param = c(x['alpha'], x['mu'])))
 
     } else {
 
-      unname(convert(q, type = 'power', param = c(x['alpha'], x['mu'])))
+      NA
 
     }
 
@@ -184,13 +184,13 @@ compute_transformation <- function(q, parameters, variable, frame = "") {
 
       unname(convert(q, type = 'power', param = c(x['alpha'], 1)))
 
-    } else if (frame == 'speedup') {
+    } else if (frame %in% c('speedup', 'delay', 'date')) {
 
       unname(convert(q, type = 'power', param = c(x['alpha'], x['mu'])))
 
     } else {
 
-      unname(convert(q, type = 'power', param = c(x['alpha'], x['mu'])))
+      NA
     }
   } else if (variable %in% c('p', 'p_ss', 'p_ll')) {
 
