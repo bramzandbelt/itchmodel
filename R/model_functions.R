@@ -304,8 +304,8 @@ dft_cp <- function(d, s, theta, z, response) {
 
   # Compute probability densities for likely responses
   cp[!unlikely] <-
-    expm1(-2 * d[!unlikely] * (theta + zvec[!unlikely]) / s[!unlikely]^2) /
-    expm1(-4 * d[!unlikely] * theta / s[!unlikely]^2)
+    expm1(-2 * d[!unlikely] * (theta[!unlikely] + zvec[!unlikely]) / s[!unlikely]^2) /
+    expm1(-4 * d[!unlikely] * theta[!unlikely] / s[!unlikely]^2)
 
   # Make sure that cp cannot be 1 or 0
   cp[cp > 0.9999] = 0.9999
