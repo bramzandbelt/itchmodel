@@ -558,9 +558,10 @@ get_frames <- function(parameterization) {
 #' This function is a wrapper around ll_diffusion.
 #'
 #' @param x parameters
+#' @param pcrit critical probabilities, only used by get_nonlinear_constraints
 #' @inheritParams fit_model
 #' @export
-get_log_likelihood = function(x, data, model = "DFT_C", parameterization = "") {
+get_log_likelihood = function(x, data, model = "DFT_C", parameterization = "", pcrit = c(.99, .01)) {
 
   # 1. Get parameter values ==================================================
   params <- get_par_values(x, model = model, parameterization = parameterization)
