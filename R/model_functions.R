@@ -850,7 +850,7 @@ get_n_free_param = function(model = "DFT_C", parameterization = "") {
 #' @param model
 #' @param parameterizationn model parameterization
 #' @export
-get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization = "") {
+get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization = "", pcrit = c(.99, .01)) {
 
   # Formulate subfunction for computing probabilities of choosing LL option
   comp_p_ll <- function(parameters, model, du, dp, d, errorval) {
@@ -913,8 +913,6 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
     stimuli <- data$stimuli[data$frame == frame][[1]]
 
     # Constraint 1: When SS amount is 0, P(choose LL) >= 0.99 ------------------
-    p_crit_1 <- 0.99
-
     du_1 <-
       compute_transformation(q = stimuli$m_l,
                              parameters = parameters,
@@ -941,11 +939,9 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
       comp_p_ll(parameters, model, du = du_1, dp = dp_1, d = d_1, errorval = 0)
 
     # P(LL) >= p_crit_1 for all trials
-    lineq <- c(lineq, p_crit_1 - p_ll_1)
+    lineq <- c(lineq, pcrit[1] - p_ll_1)
 
     # Constraint 2: When SS and LL amounts are equal, P(choose LL) <= 0.01 -----
-    p_crit_2 <- 0.01
-
     du_2 <-
       compute_transformation(q = stimuli$m_l,
                              parameters = parameters,
@@ -973,7 +969,7 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
       comp_p_ll(parameters, model, du = du_2, dp = dp_2, d = d_2, errorval = 1)
 
     # P(LL) >= p_crit_1 for all trials
-    lineq <- c(lineq, p_ll_2 - p_crit_2)
+    lineq <- c(lineq, p_ll_2 - pcrit[2])
 
   }
 
