@@ -9,11 +9,19 @@ License: MIT
 Encoding: UTF-8 
 LazyData: true
 Imports:
-    DEoptimR(>= 1.0-8),
-    ggthemes (>= 3.4.0),
-    MASS,
-    runjags (>= 2.0.4-2),
-    tidyverse (>= 1.2.1)
+    assertthat,
+    cowplot,
+    dplyr,
+    DEoptim,
+    DEoptimR,
+    ggplot2,
+    knitr,
+    magrittr,
+    purrr,
+    rtdists,
+    stringr,
+    tibble,
+    tidyr
 Suggests: testthat,
     knitr,
     rmarkdown
