@@ -1,7 +1,3 @@
-# Source some code from John Kruschke for Bayesian logistic regression
-# source('/Users/bramzandbelt/surfdrive/projects/BEWITCHING/itchmodel/R/Kruschke_code/Jags-Ydich-XmetMulti-Mlogistic.R')
-# source('/Users/bramzandbelt/surfdrive/projects/BEWITCHING/itchmodel/R/Kruschke_code/DBDA2E-utilities.R')
-
 ## compute_drift_rate ##########################################################
 
 #' Compute drift rate
@@ -636,60 +632,6 @@ get_log_likelihood = function(x, data, model = "DFT_C", parameterization = "", p
 
   ll
 
-}
-
-
-
-
-## get_m_ss_estimates ##########################################################
-#' Based on response data from an indifference point procedure, estimate values for m_ss that will more or less in P(choose LL) equal to p
-#'
-#' @param data response data
-#' @param p vector of desired response probabilities
-get_m_ss_estimates <- function(data, p) {
-
-  # Fit Bayesian logistic regression to data
-
-  nested_data <-
-    data %>%
-    dplyr::select(m_ss, t_ll, choice) %>%
-    dplyr::mutate(choice = as.integer(choice)) %>%
-    # Nest based on t_ll
-    tidyr::nest(., .key = 'obs', c(m_ss, choice))  %>%
-    dplyr::mutate(obs = purrr::map(.x = .$obs,
-                                   .f = as.data.frame
-                                   )
-                  )
-
-  # I could not get this to work quickly with purrr
-  for (i_row in 1:nrow(nested_data)) {
-
-    nested_data$mcmc_coda[[i_row]] = genMCMC(data = nested_data$obs[[i_row]],
-                                             xName = c("m_ss"),
-                                             yName = "choice",
-                                             numSavedSteps = 10000,
-                                             saveName = NULL
-                                             )
-    nested_data$params[[i_row]] = smryMCMC(nested_data$mcmc_coda[[i_row]])
-
-  }
-
-  # Convert factor levels to numeric (for calculation purposes)
-  nested_data$t_ll <- as.numeric(levels(nested_data$t_ll)[nested_data$t_ll])
-
-  for (i_row in 1:nrow(nested_data)) {
-    nested_data$m_ss[[i_row]] <-
-      # expand.grid(p = p,
-      #             t_ll = nested_data$t_ll[[i_row]]) %>%
-      # tibble::as.tibble() %>%
-      (log(1/p-1) +
-         nested_data$params[[i_row]]['beta0','Median']) /
-      -nested_data$params[[i_row]]['beta','Median']
-
-  }
-  nested_data$p = rep(list(p), nrow(nested_data))
-
-  nested_data %>% dplyr::select(t_ll, p, m_ss) %>% tidyr::unnest()
 }
 
 ## get_par_names ###############################################################
