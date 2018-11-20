@@ -416,13 +416,17 @@ fit_model <- function(data,
   assertthat::assert_that(parameterization %in% c('one_condition',
                                                   'date_delay_time_scaling',
                                                   'date_delay_time_scaling_t0',
+                                                  'date_delay_time_and_value_scaling',
+                                                  'date_delay_time_and_value_scaling_t0',
                                                   'date_delay_value_scaling',
                                                   'date_delay_value_scaling_t0',
                                                   'defer_speedup_time_scaling',
                                                   'defer_speedup_time_scaling_t0',
+                                                  'defer_speedup_time_and_value_scaling',
+                                                  'defer_speedup_time_and_value_scaling_t0',
                                                   'defer_speedup_value_scaling',
                                                   'defer_speedup_value_scaling_t0'),
-                          msg = "parameterization is ill-specified. It should be any of the following: \n'date_delay_time_scaling', \n'date_delay_time_scaling_t0', \n'date_delay_value_scaling', \n'date_delay_value_scaling_t0', \n'defer_speedup_time_scaling', \n'defer_speedup_time_scaling_t0', \n'defer_speedup_value_scaling', \n'defer_speedup_value_scaling_t0', or \n'one_condition', .")
+                          msg = "parameterization is ill-specified. It should be any of the following: \n'date_delay_time_scaling', \n'date_delay_time_scaling_t0', \n'date_delay_time_and_value_scaling', \n'date_delay_time_and_value_scaling_t0', \n'date_delay_value_scaling', \n'date_delay_value_scaling_t0', \n'defer_speedup_time_scaling', \n'defer_speedup_time_scaling_t0', \n'defer_speedup_time_and_value_scaling', \n'defer_speedup_time_and_value_scaling_t0', \n'defer_speedup_value_scaling', \n'defer_speedup_value_scaling_t0', or \n'one_condition', .")
 
   assertthat::assert_that(is.double(lowers), msg = "lowers should be a double-precision vector")
   assertthat::assert_that(is.double(uppers), msg = "uppers should be a double-precision vector")
@@ -524,16 +528,20 @@ get_frames <- function(parameterization) {
 
   # 1. Assert that inputs meet expectations ====================================
   assertthat::assert_that(parameterization %in% c("one_condition",
-                                                  "date_delay_value_scaling",
-                                                  "date_delay_value_scaling_t0",
-                                                  "defer_speedup_value_scaling",
-                                                  "defer_speedup_value_scaling_t0",
                                                   "date_delay_time_scaling",
                                                   "date_delay_time_scaling_t0",
+                                                  "date_delay_time_and_value_scaling",
+                                                  "date_delay_time_and_value_scaling_t0",
+                                                  "date_delay_value_scaling",
+                                                  "date_delay_value_scaling_t0",
                                                   "defer_speedup_time_scaling",
-                                                  "defer_speedup_time_scaling_t0"
+                                                  "defer_speedup_time_scaling_t0",
+                                                  "defer_speedup_time_and_value_scaling",
+                                                  "defer_speedup_time_and_value_scaling_t0",
+                                                  "defer_speedup_value_scaling",
+                                                  "defer_speedup_value_scaling_t0"
   ),
-  msg = "Specify parameterization as \n\"one-condition\" (i.e., estimate parameters from a single experimental condition), \n\"date_delay_value_scaling\" (i.e., estimate free value function scaling parameter across two experimental conditions), \n\"date_delay_value_scaling_t0\" (i.e., estimate free value function scaling parameter and t0 across two experimental conditions), \n\"date_delay_time_scaling\" (i.e., estimate free time function sensitivity parameter across two experimental conditions), \n\"date_delay_time_scaling_t0\" (i.e., estimate free time function sensitivity parameter and t0 across two experimental conditions), \n\"defer_speedup_value_scaling\" (i.e., estimate free value function scaling parameter across two experimental conditions), \n\"defer_speedup_value_scaling_t0\" (i.e., estimate free value function scaling parameter and t0 across two experimental conditions), \n\"defer_speedup_time_scaling\" (i.e., estimate free time function scaling parameter  across two experimental conditions), or \n\"defer_speedup_time_scaling_t0\" (i.e., estimate free time function scaling parameter and t0 across two experimental conditions)."
+  msg = "Specify parameterization as \n\"one-condition\" (i.e., estimate parameters from a single experimental condition), \n\"date_delay_value_scaling\" (i.e., estimate free value function scaling parameter across two experimental conditions), \n\"date_delay_value_scaling_t0\" (i.e., estimate free value function scaling parameter and t0 across two experimental conditions), \n\"date_delay_time_scaling\" (i.e., estimate free time function sensitivity parameter across two experimental conditions), \n\"date_delay_time_scaling_t0\" (i.e., estimate free time function sensitivity parameter and t0 across two experimental conditions), \n\"date_delay_time_and_value_scaling\", \n\"date_delay_time_and_value_scaling_t0\", \n\"defer_speedup_value_scaling\" (i.e., estimate free value function scaling parameter across two experimental conditions), \n\"defer_speedup_value_scaling_t0\" (i.e., estimate free value function scaling parameter and t0 across two experimental conditions), \n\"defer_speedup_time_scaling\" (i.e., estimate free time function scaling parameter  across two experimental conditions), \n\"defer_speedup_time_scaling_t0\" (i.e., estimate free time function scaling parameter and t0 across two experimental conditions), \n\"defer_speedup_time_and_value_scaling\", or \n\"defer_speedup_time_and_value_scaling_t0\"."
   )
 
   # 2. Return frames ===========================================================
@@ -647,56 +655,82 @@ get_par_names = function(model = "DFT_C", parameterization = "") {
            # 1.1. One condition ------------------------------------------------
            one_condition = c("alpha", "mu", "beta", "kappa", "w", "a", "t0"),
 
-           # 1.2.1. Date/delay effect - changes in time scaling (kappa) ----------
+           # 1.2.1.1. Date/delay effect - changes in time scaling (kappa) ----------
            # - delay framing: kappa = 1
            # - date framing: kappa = kappa_loss < 1
 
            date_delay_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "w", "a", "t0"),
 
-           # 1.2.2. Date/delay effect - changes in time scaling (kappa) & t0----
+           # 1.2.1.2. Date/delay effect - changes in time scaling (kappa) & t0----
            # - delay framing: kappa = 1, t0 = t01
            # - date framing: kappa = kappa_loss < 1, , t0 = t02
 
            date_delay_time_scaling_t0 = c("alpha", "mu", "beta", "kappa1", "kappa2", "w", "a", "t01", "t02"),
 
-           # 1.3.1. Date/delay effect - changes in value scaling (mu) ----------
+           # 1.2.2.1. Date/delay effect - changes in value scaling (mu) ----------
            # - delay framing: mu = 1
            # - date framing: mu = mu_gain > 1
 
            date_delay_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "a", "t0"),
 
-           # 1.3.2. Date/delay effect - changes in value scaling (mu) & t0 -----
+           # 1.2.2.2. Date/delay effect - changes in value scaling (mu) & t0 -----
            # - delay framing: mu = 1, t0 = t01
-           # - date framing: mu = mu_gain > 1, , t0 = t02
+           # - date framing: mu = mu_gain > 1, t0 = t02
 
            date_delay_value_scaling_t0 = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "a", "t01", "t02"),
 
-           # 1.4.1. Defer/speedup effect - changes in time scaling (kappa) -----
+           # 1.2.3.1. Date/delay effect - changes in time scaling (kappa) & value scaling (mu) ----------
+           # - delay framing: kappa = 1, mu = 1
+           # - date framing: kappa = kappa_loss < 1, mu = mu_gain > 1
+
+           date_delay_time_and_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa1", "kappa2", "w", "a", "t0"),
+
+           # 1.2.3.2. Date/delay effect - changes in time scaling (kappa), value scaling (mu), & t0 ----
+           # - delay framing: kappa = 1, mu = 1, t0 = t01
+           # - date framing: kappa = kappa_loss < 1, mu = mu_gain > 1, t0 = t02
+
+           date_delay_time_and_value_scaling_t0 = c("alpha", "mu1", "mu2", "beta", "kappa1", "kappa2", "w", "a", "t01", "t02"),
+
+           # 1.3.1.1. Defer/speedup effect - changes in time scaling (kappa) -----
            # - neutral framing: kappa = 1
            # - defer framing: kappa > 1 (over-responsive to deferrals)
            # - speedup framing: kappa < 1 (under-responsive to speedups)
 
            defer_speedup_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "kappa3", "w", "a", "t0"),
 
-           # 1.4.2. Defer/speedup effect - changes in time scaling (kappa) & t0
+           # 1.3.1.2. Defer/speedup effect - changes in time scaling (kappa) & t0
            # - neutral framing: kappa = 1, t0 = t01
            # - defer framing: kappa > 1 (over-responsive to deferrals), t0 = t02
            # - speedup framing: kappa < 1 (under-responsive to speedups), t0 = t03
 
            defer_speedup_time_scaling_t0 = c("alpha", "mu", "beta", "kappa1", "kappa2", "kappa3", "w", "a", "t01", "t02", "t03"),
 
-           # 1.5.1. Defer/speedup effect - changes in value scaling (mu) -------
+           # 1.3.2.1. Defer/speedup effect - changes in value scaling (mu) -------
            # - neutral framing:
            # - defer framing:
            # - speedup framing:
 
            defer_speedup_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "a", "t0"),
-           # 1.5.2. Defer/speedup effect - changes in value scaling (mu) & t0 --
+           # 1.3.2.2. Defer/speedup effect - changes in value scaling (mu) & t0 --
            # - neutral framing:
            # - defer framing:
            # - speedup framing:
 
-           defer_speedup_value_scaling_t0 = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "a", "t01", "t02", "t03")
+           defer_speedup_value_scaling_t0 = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "a", "t01", "t02", "t03"),
+
+           # 1.3.3.1. Defer/speedup effect - changes in time scaling (kappa) & value scaling (mu) -----
+           # - neutral framing: kappa = 1
+           # - defer framing: kappa > 1 (over-responsive to deferrals), mu > 1 (smaller du)
+           # - speedup framing: kappa < 1 (under-responsive to speedups), mu > 1 (larger du)
+
+           defer_speedup_time_and_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa1", "kappa2", "kappa3", "w", "a", "t0"),
+
+           # 1.3.3.2. Defer/speedup effect - changes in time scaling (kappa), value scaling (mu), & t0
+           # - neutral framing: kappa = 1, t0 = t01
+           # - defer framing: kappa > 1 (over-responsive to deferrals), mu > 1 (smaller du), t0 = t02
+           # - speedup framing: kappa < 1 (under-responsive to speedups), mu > 1 (larger du), t0 = t03
+
+           defer_speedup_time_and_value_scaling_t0 = c("alpha", "mu1", "mu2", "beta", "kappa1", "kappa2", "kappa3", "w", "a", "t01", "t02", "t03")
          ),
        DFT_C =
          list(
@@ -709,25 +743,38 @@ get_par_names = function(model = "DFT_C", parameterization = "") {
 
            date_delay_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "w", "theta_star"),
 
-           # 1.3.1. Date/delay effect - changes in value scaling (mu) ----------
+           # 1.2.2. Date/delay effect - changes in value scaling (mu) ----------
            # - delay framing: mu = 1
            # - date framing: mu = mu_gain > 1
 
            date_delay_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star"),
 
-           # 1.4.1. Defer/speedup effect - changes in time scaling (kappa) -----
+           # 1.2.3. Date/delay effect - changes in time scaling (kappa) and value scaling ----------
+           # - delay framing: kappa = 1, mu = 1
+           # - date framing: kappa = kappa_loss < 1, mu = mu_gain > 1
+
+           date_delay_time_scaling = c("alpha", "mu1", "mu2", "beta", "kappa1", "kappa2", "w", "theta_star"),
+
+           # 1.3.1. Defer/speedup effect - changes in time scaling (kappa) -----
            # - neutral framing: kappa = 1
            # - defer framing: kappa > 1 (over-responsive to deferrals)
            # - speedup framing: kappa < 1 (under-responsive to speedups)
 
            defer_speedup_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "kappa3", "w", "theta_star"),
 
-           # 1.5.1. Defer/speedup effect - changes in value scaling (mu) -------
+           # 1.3.2. Defer/speedup effect - changes in value scaling (mu) -------
            # - neutral framing:
            # - defer framing:
            # - speedup framing:
 
-           defer_speedup_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star")
+           defer_speedup_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star"),
+
+           # 1.3.3. Defer/speedup effect - changes in time scaling (kappa) and value scaling (mu) -----
+           # - neutral framing: kappa = 1
+           # - defer framing: kappa > 1 (over-responsive to deferrals), mu > 1 (smaller du)
+           # - speedup framing: kappa < 1 (under-responsive to speedups), , mu > 1 (larger du)
+
+           defer_speedup_time_and_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa1", "kappa2", "kappa3", "w", "theta_star")
 
          ),
        DFT_CRT =
@@ -735,32 +782,82 @@ get_par_names = function(model = "DFT_C", parameterization = "") {
            # 1.1. One condition ------------------------------------------------
            one_condition = c("alpha", "mu", "beta", "kappa", "w", "theta_star", "t0"),
 
-           # 1.2.1. Date/delay effect - changes in time scaling (kappa) ----------
+           # 1.2.1.1. Date/delay effect - changes in time scaling (kappa) ----------
            # - delay framing: kappa = 1
            # - date framing: kappa = kappa_loss < 1
 
            date_delay_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "w", "theta_star", "t0"),
 
-           # 1.3.1. Date/delay effect - changes in value scaling (mu) ----------
+           # 1.2.1.2. Date/delay effect - changes in time scaling (kappa) & t0----
+           # - delay framing: kappa = 1, t0 = t01
+           # - date framing: kappa = kappa_loss < 1, , t0 = t02
+
+           date_delay_time_scaling_t0 = c("alpha", "mu", "beta", "kappa1", "kappa2", "w", "theta_star", "t01", "t02"),
+
+           # 1.2.2.1. Date/delay effect - changes in value scaling (mu) ----------
            # - delay framing: mu = 1
            # - date framing: mu = mu_gain > 1
 
            date_delay_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star", "t0"),
 
-           # 1.4.1. Defer/speedup effect - changes in time scaling (kappa) -----
+           # 1.2.2.2. Date/delay effect - changes in value scaling (mu) & t0 -----
+           # - delay framing: mu = 1, t0 = t01
+           # - date framing: mu = mu_gain > 1, t0 = t02
+
+           date_delay_value_scaling_t0 = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star", "t01", "t02"),
+
+           # 1.2.3.1. Date/delay effect - changes in time scaling (kappa) & value scaling (mu) ----------
+           # - delay framing: kappa = 1, mu = 1
+           # - date framing: kappa = kappa_loss < 1, mu = mu_gain > 1
+
+           date_delay_time_and_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa1", "kappa2", "w", "theta_star", "t0"),
+
+           # 1.2.3.2. Date/delay effect - changes in time scaling (kappa), value scaling (mu), & t0 ----
+           # - delay framing: kappa = 1, mu = 1, t0 = t01
+           # - date framing: kappa = kappa_loss < 1, mu = mu_gain > 1, t0 = t02
+
+           date_delay_time_and_value_scaling_t0 = c("alpha", "mu1", "mu2", "beta", "kappa1", "kappa2", "w", "theta_star", "t01", "t02"),
+
+           # 1.3.1.1. Defer/speedup effect - changes in time scaling (kappa) -----
            # - neutral framing: kappa = 1
            # - defer framing: kappa > 1 (over-responsive to deferrals)
            # - speedup framing: kappa < 1 (under-responsive to speedups)
 
            defer_speedup_time_scaling = c("alpha", "mu", "beta", "kappa1", "kappa2", "kappa3", "w", "theta_star", "t0"),
 
-           # 1.5.1. Defer/speedup effect - changes in value scaling (mu) -------
+           # 1.3.1.2. Defer/speedup effect - changes in time scaling (kappa) & t0
+           # - neutral framing: kappa = 1, t0 = t01
+           # - defer framing: kappa > 1 (over-responsive to deferrals), t0 = t02
+           # - speedup framing: kappa < 1 (under-responsive to speedups), t0 = t03
+
+           defer_speedup_time_scaling_t0 = c("alpha", "mu", "beta", "kappa1", "kappa2", "kappa3", "w", "theta_star", "t01", "t02", "t03"),
+
+           # 1.3.2.1. Defer/speedup effect - changes in value scaling (mu) -------
            # - neutral framing:
            # - defer framing:
            # - speedup framing:
 
-           defer_speedup_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star", "t0")
+           defer_speedup_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star", "t0"),
+           # 1.3.2.2. Defer/speedup effect - changes in value scaling (mu) & t0 --
+           # - neutral framing:
+           # - defer framing:
+           # - speedup framing:
 
+           defer_speedup_value_scaling_t0 = c("alpha", "mu1", "mu2", "beta", "kappa", "w", "theta_star", "t01", "t02", "t03"),
+
+           # 1.3.3.1. Defer/speedup effect - changes in time scaling (kappa) & value scaling (mu) -----
+           # - neutral framing: kappa = 1
+           # - defer framing: kappa > 1 (over-responsive to deferrals), mu > 1 (smaller du)
+           # - speedup framing: kappa < 1 (under-responsive to speedups), mu > 1 (larger du)
+
+           defer_speedup_time_and_value_scaling = c("alpha", "mu1", "mu2", "beta", "kappa1", "kappa2", "kappa3", "w", "theta_star", "t0"),
+
+           # 1.3.3.2. Defer/speedup effect - changes in time scaling (kappa), value scaling (mu), & t0
+           # - neutral framing: kappa = 1, t0 = t01
+           # - defer framing: kappa > 1 (over-responsive to deferrals), mu > 1 (smaller du), t0 = t02
+           # - speedup framing: kappa < 1 (under-responsive to speedups), mu > 1 (larger du), t0 = t03
+
+           defer_speedup_time_and_value_scaling_t0 = c("alpha", "mu1", "mu2", "beta", "kappa1", "kappa2", "kappa3", "w", "theta_star", "t01", "t02", "t03")
          )
   )[[model]][[parameterization]]
 
@@ -1058,6 +1155,26 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                                  u['kappa'], u['w'], u['a'], u['t0'], u['t0'])
                   ),
 
+                # 1.3.1. Changes in time scaling (kappa) -------------------------
+                # - delay framing: kappa = 1, mu = 1
+                # - date framing: kappa = kappa_loss < 1, mu = mu_gain > 1
+
+                date_delay_time_and_value_scaling =
+                  list(lower = c(l['alpha'], l['mu'], l['mu_gain'], l['beta'], l['kappa'], l['kappa_gain'], l['w'], l['a'], l['t0']),
+                       upper = c(u['alpha'], u['mu'], u['mu_gain'], u['beta'], u['kappa'], u['kappa_gain'], u['w'], u['a'], u['t0'])
+                  ),
+
+                # 1.3.2. Changes in time scaling (kappa) & t0 ------------------
+                # - delay framing: kappa = 1, mu = 1, t0 = t01
+                # - date framing: kappa = kappa_loss < 1, mu = mu_gain > 1, t0 = t02
+
+                date_delay_time_and_value_scaling_t0 =
+                  list(lower = c(l['alpha'], l['mu'], l['mu_gain'], l['beta'], l['kappa'],
+                                 l['kappa_gain'], l['w'], l['a'], l['t0'], l['t0']),
+                       upper = c(u['alpha'], u['mu'], u['mu_gain'], u['beta'], u['kappa'],
+                                 u['kappa_gain'], u['w'], u['a'], u['t0'], u['t0'])
+                  ),
+
                 # 2. Defer-speedup effect ======================================
 
                 # 2.1.1. Changes in time scaling (kappa) -----------------------
@@ -1108,9 +1225,33 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                                  l['kappa'], l['w'], l['a'], l['t0'], l['t0'], l['t0']),
                        upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'],
                                  u['kappa'], u['w'], u['a'], u['t0'], u['t0'], u['t0'])
+                  ),
+
+                # 2.3.1. Changes in time scaling (kappa) and value scaling (mu) -----------------------
+                # - neutral framing: kappa = 1, mu = 1
+                # - defer framing: kappa > 1 (over-responsive to deferrals), mu > 1 (smaller du)
+                # - speedup framing: kappa < 1 (under-responsive to speedups), mu > 1 (larger du)
+
+                defer_speedup_time_scaling =
+                  list(lower = c(l['alpha'], l['mu'], l['mu_loss'], l['beta'], l['kappa'],
+                                 l['kappa_loss'], l['kappa_gain'], l['w'], l['a'], l['t0']),
+                       upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'], u['kappa'],
+                                 u['kappa_loss'], u['kappa_gain'], u['w'], u['a'], u['t0'])
+                  ),
+
+                # 2.3.2. Changes in time scaling (kappa), value scaling (mu), & t0  -----------------------
+                # - neutral framing: kappa = 1, mu = 1, t0 = t01
+                # - defer framing: kappa > 1 (over-responsive to deferrals), mu > 1 (smaller du), t0 = t02
+                # - speedup framing: kappa < 1 (under-responsive to speedups), mu > 1 (larger du), t0 = t03
+
+                defer_speedup_time_scaling_t0 =
+                  list(lower = c(l['alpha'], l['mu'], l['mu_loss'], l['beta'], l['kappa'],
+                                 l['kappa_loss'], l['kappa_gain'], l['w'],
+                                 l['a'], l['t0'], l['t0'], l['t0']),
+                       upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'], u['kappa'],
+                                 u['kappa_loss'], u['kappa_gain'], u['w'],
+                                 u['a'], u['t0'], u['t0'], u['t0'])
                   )
-
-
                 ),
          DFT_C = list(one_condition =
                         list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'],
@@ -1143,6 +1284,18 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                                        u['kappa'], u['w'], u['theta_star'])
                         ),
 
+                      # 1.3.1. Changes in time scaling (kappa) and value scaling (mu)-------------------------
+                      # - delay framing: kappa = 1, mu = 1
+                      # - date framing: kappa = kappa_loss < 1, mu = mu_gain > 1
+
+                      date_delay_time_and_value_scaling =
+                        list(lower = c(l['alpha'], l['mu'], l['mu_gain'], l['beta'], l['kappa'],
+                                       l['kappa_gain'], l['w'], l['theta_star']),
+                             upper = c(u['alpha'], u['mu'], u['mu_gain'], u['beta'], u['kappa'],
+                                       u['kappa_gain'], u['w'], u['theta_star'])
+                        ),
+
+
                       # 2. Defer-speedup effect ======================================
 
                       # 2.1.1. Changes in time scaling (kappa) -----------------------
@@ -1167,7 +1320,20 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                                        l['kappa'], l['w'], l['theta_star']),
                              upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'],
                                        u['kappa'], u['w'], u['theta_star'])
+                        ),
+
+                      # 2.3.1. Changes in time scaling (kappa) & value scaling (mu) -----------------------
+                      # - neutral framing: kappa = 1, mu = 1
+                      # - defer framing: kappa > 1 (over-responsive to deferrals), mu > 1 (smaller du)
+                      # - speedup framing: kappa < 1 (under-responsive to speedups), mu > 1 (larger du)
+
+                      defer_speedup_time_and_value_scaling =
+                        list(lower = c(l['alpha'], l['mu'], l['mu_loss'], l['beta'], l['kappa'],
+                                       l['kappa_loss'], l['kappa_gain'], l['w'], l['theta_star']),
+                             upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'], u['kappa'],
+                                       u['kappa_loss'], u['kappa_gain'], u['w'], u['theta_star'])
                         )
+
          ),
          DFT_CRT = list(one_condition =
                           list(lower = c(l['alpha'], l['mu'], l['beta'], l['kappa'],
@@ -1222,6 +1388,28 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                                          u['kappa'], u['w'], u['theta_star'], u['t0'], u['t0'])
                           ),
 
+                        # 1.3.1. Changes in time scaling (kappa) & value scaling (mu) -------------------------
+                        # - delay framing: kappa = 1, mu = 1
+                        # - date framing: kappa = kappa_loss < 1, mu = mu_gain > 1
+
+                        date_delay_time_and_value_scaling =
+                          list(lower = c(l['alpha'], l['mu'], l['mu_gain'], l['beta'], l['kappa'],
+                                         l['kappa_gain'], l['w'], l['theta_star'], l['t0']),
+                               upper = c(u['alpha'], u['mu'], u['mu_gain'], u['beta'], u['kappa'],
+                                         u['kappa_gain'], u['w'], u['theta_star'], u['t0'])
+                          ),
+
+                        # 1.3.2. Changes in time scaling (kappa), value scaling (mu) & t0 ------------------
+                        # - delay framing: kappa = 1, mu = 1, t0 = t01
+                        # - date framing: kappa = kappa_loss < 1, mu = mu_gain > 1, t0 = t02
+
+                        date_delay_time_and_value_scaling_t0 =
+                          list(lower = c(l['alpha'], l['mu'], l['mu_gain'], l['beta'], l['kappa'],
+                                         l['kappa_gain'], l['w'], l['theta_star'], l['t0'], l['t0']),
+                               upper = c(u['alpha'], u['mu'], u['mu_gain'], u['beta'], u['kappa'],
+                                         u['kappa_gain'], u['w'], u['theta_star'], u['t0'], u['t0'])
+                          ),
+
                         # 2. Defer-speedup effect ======================================
 
                         # 2.1.1. Changes in time scaling (kappa) -----------------------
@@ -1272,9 +1460,33 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                                          l['kappa'], l['w'], l['theta_star'], l['t0'], l['t0'], l['t0']),
                                upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'],
                                          u['kappa'], u['w'], u['theta_star'], u['t0'], u['t0'], u['t0'])
+                          ),
+
+                        # 2.3.1. Changes in time scaling (kappa) & value scaling (mu) -----------------------
+                        # - neutral framing: kappa = 1, mu = 1
+                        # - defer framing: kappa > 1 (over-responsive to deferrals), mu > 1 (smaller du)
+                        # - speedup framing: kappa < 1 (under-responsive to speedups), mu > 1 (larger du)
+
+                        defer_speedup_time_and_value_scaling =
+                          list(lower = c(l['alpha'], l['mu'], l['mu_loss'], l['beta'], l['kappa'],
+                                         l['kappa_loss'], l['kappa_gain'], l['w'], l['theta_star'], l['t0']),
+                               upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'], u['kappa'],
+                                         u['kappa_loss'], u['kappa_gain'], u['w'], u['theta_star'], u['t0'])
+                          ),
+
+                        # 2.3.2. Changes in time scaling (kappa), value scaling (mu), & t0 -----------------------
+                        # - neutral framing: kappa = 1, mu = 1, t0 = t01
+                        # - defer framing: kappa > 1 (over-responsive to deferrals), mu > 1 (smaller du), t0 = t02
+                        # - speedup framing: kappa < 1 (under-responsive to speedups), mu > 1 (larger du), t0 = t03
+
+                        defer_speedup_time_and_value_scaling_t0 =
+                          list(lower = c(l['alpha'], l['mu'], l['mu_loss'], l['beta'], l['kappa'],
+                                         l['kappa_loss'], l['kappa_gain'], l['w'],
+                                         l['theta_star'], l['t0'], l['t0'], l['t0']),
+                               upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'], u['kappa'],
+                                         u['kappa_loss'], u['kappa_gain'], u['w'],
+                                         u['theta_star'], u['t0'], u['t0'], u['t0'])
                           )
-
-
          )
          )[[model]][[parameterization]][[bound]]
     )
@@ -1481,7 +1693,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
 
     } else if (parameterization == "date_delay_time_scaling") {
 
-      # 2.1.1. Date/delay effect - changes in time scaling (kappa) ---------------
+      # 2.1.1.1. Date/delay effect - changes in time scaling (kappa) ---------------
 
       # delay frame: kappa = 1
       params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["a"], x["t0"])
@@ -1493,7 +1705,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
 
     } else if (parameterization == "date_delay_time_scaling_t0") {
 
-      # 2.1.2. Date/delay effect - changes in time scaling (kappa) & t0 ----------
+      # 2.1.1.2. Date/delay effect - changes in time scaling (kappa) & t0 ----------
 
       # delay frame: kappa = 1, t0 = t01
       params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["a"], x["t01"])
@@ -1505,7 +1717,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
 
     } else if (parameterization == "date_delay_value_scaling") {
 
-      # 2.2.1. Date/delay effect - changes in value scaling (mu) -----------------
+      # 2.1.2.1. Date/delay effect - changes in value scaling (mu) -----------------
 
       # delay frame: mu = 1
       params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
@@ -1516,7 +1728,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
 
     } else if (parameterization == "date_delay_value_scaling_t0") {
 
-      # 2.2.2. Date/delay effect - changes in value scaling (mu) & t0 ------------
+      # 2.1.2.2. Date/delay effect - changes in value scaling (mu) & t0 ------------
 
       # delay frame: mu = 1, t0 = t01
       params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["a"], x["t01"])
@@ -1525,9 +1737,33 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
       params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["a"], x["t02"])
       names(params[[1]]) = names(params[[2]]) = parameter_names
 
+    } else if (parameterization == "date_delay_time_and_value_scaling") {
+
+      # 2.1.3.1. Date/delay effect - changes in time scaling (kappa) & value scaling (mu) ---------------
+
+      # delay frame: kappa = 1
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa1"], x["w"], x["a"], x["t0"])
+
+      # date frame: kappa = kappa_loss < 1
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa2"], x["w"], x["a"], x["t0"])
+
+      names(params[[1]]) = names(params[[2]]) = parameter_names
+
+    } else if (parameterization == "date_delay_time_and_value_scaling_t0") {
+
+      # 2.1.3.2. Date/delay effect - changes in time scaling (kappa), value scaling (mu), & t0 ----------
+
+      # delay frame: kappa = 1, t0 = t01
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa1"], x["w"], x["a"], x["t01"])
+
+      # date frame: kappa = kappa_loss < 1, t0 = t02
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa2"], x["w"], x["a"], x["t02"])
+
+      names(params[[1]]) = names(params[[2]]) = parameter_names
+
     } else if (parameterization == "defer_speedup_time_scaling") {
 
-      # 2.3.1. Defer/speedup effect - changes in time scaling (kappa) --------------
+      # 2.2.1.1. Defer/speedup effect - changes in time scaling (kappa) --------------
 
       # neutral frame: kappa = 1
       params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["a"], x["t0"])
@@ -1542,7 +1778,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
 
     } else if (parameterization == "defer_speedup_time_scaling_t0") {
 
-      # 2.3.2. Defer/speedup effect - changes in time scaling (kappa) & t0 -------
+      # 2.2.1.2. Defer/speedup effect - changes in time scaling (kappa) & t0 -------
 
       # neutral frame: kappa = 1
       params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["a"], x["t01"])
@@ -1557,7 +1793,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
 
     } else if (parameterization == "defer_speedup_value_scaling") {
 
-      # 2.4.1. Defer/speedup effect - changes in value scaling (mu) --------------
+      # 2.2.2.1. Defer/speedup effect - changes in value scaling (mu) --------------
 
       # neutral frame: mu = 1
       params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["a"], x["t0"])
@@ -1571,7 +1807,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
       names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
     } else if (parameterization == "defer_speedup_value_scaling_t0") {
 
-      # 2.4.2. Defer/speedup effect - changes in value scaling (mu) & t0 ---------
+      # 2.2.2.2. Defer/speedup effect - changes in value scaling (mu) & t0 ---------
 
       # neutral frame: mu = 1, t0 = t01
       params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["a"], x["t01"])
@@ -1583,6 +1819,37 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
       params[[3]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["a"], x["t03"])
 
       names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+
+    } else if (parameterization == "defer_speedup_time_and_value_scaling") {
+
+      # 2.2.3.1. Defer/speedup effect - changes in time scaling (kappa) & value scaling (mu) --------------
+
+      # neutral frame: kappa = 1
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa1"], x["w"], x["a"], x["t0"])
+
+      # defer frame: kappa = 1
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa2"], x["w"], x["a"], x["t0"])
+
+      # speedup frame: kappa = 1
+      params[[3]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa3"], x["w"], x["a"], x["t0"])
+
+      names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+
+    } else if (parameterization == "defer_speedup_time_and_value_scaling_t0") {
+
+      # 2.2.3.2. Defer/speedup effect - changes in time scaling (kappa), value scaling (mu)  & t0 -------
+
+      # neutral frame: kappa = 1
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa1"], x["w"], x["a"], x["t01"])
+
+      # defer frame: kappa = 1
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa2"], x["w"], x["a"], x["t02"])
+
+      # speedup frame: kappa = 1
+      params[[3]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa3"], x["w"], x["a"], x["t03"])
+
+      names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+
     }
   } else if (model == "DFT_C") {
     if (parameterization == "one_condition") {
@@ -1603,7 +1870,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
 
     } else if (parameterization == "date_delay_value_scaling") {
 
-      # 2.2.1. Date/delay effect - changes in value scaling (mu) -----------------
+      # 2.1.2. Date/delay effect - changes in value scaling (mu) -----------------
 
       # delay frame: mu = 1
       params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["theta_star"])
@@ -1612,9 +1879,21 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
       params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["theta_star"])
       names(params[[1]]) = names(params[[2]]) = parameter_names
 
+    } else if (parameterization == "date_delay_time_and_value_scaling") {
+
+      # 2.1.3. Date/delay effect - changes in time scaling (kappa) & value scaling (mu) ---------------
+
+      # delay frame: kappa = 1, mu = 1
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa1"], x["w"], x["theta_star"])
+
+      # date frame: kappa = kappa_loss < 1, mu = mu_gain > 1
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa2"], x["w"], x["theta_star"])
+
+      names(params[[1]]) = names(params[[2]]) = parameter_names
+
     } else if (parameterization == "defer_speedup_time_scaling") {
 
-      # 2.3.1. Defer/speedup effect - changes in time scaling (kappa) --------------
+      # 2.2.1. Defer/speedup effect - changes in time scaling (kappa) --------------
 
       # neutral frame: kappa = 1
       params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["theta_star"])
@@ -1629,7 +1908,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
 
     } else if (parameterization == "defer_speedup_value_scaling") {
 
-      # 2.4.1. Defer/speedup effect - changes in value scaling (mu) --------------
+      # 2.2.2. Defer/speedup effect - changes in value scaling (mu) --------------
 
       # neutral frame: mu = 1
       params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["theta_star"])
@@ -1641,6 +1920,22 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
       params[[3]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["theta_star"])
 
       names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+
+    } else if (parameterization == "defer_speedup_time_and_value_scaling") {
+
+      # 2.2.3. Defer/speedup effect - changes in time scaling (kappa) & value scaling (mu) --------------
+
+      # neutral frame: kappa = 1, mu = 1
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa1"], x["w"], x["theta_star"])
+
+      # defer frame: kappa = 1, mu > 1
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa2"], x["w"], x["theta_star"])
+
+      # speedup frame: kappa = 1, mu > 1
+      params[[3]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa3"], x["w"], x["theta_star"])
+
+      names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+
     }
   } else if (model == "DFT_CRT") {
     if (parameterization == "one_condition") {
@@ -1649,7 +1944,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
 
     } else if (parameterization == "date_delay_time_scaling") {
 
-      # 2.1.1. Date/delay effect - changes in time scaling (kappa) ---------------
+      # 2.1.1.1. Date/delay effect - changes in time scaling (kappa) ---------------
 
       # delay frame: kappa = 1
       params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["theta_star"], x["t0"])
@@ -1661,7 +1956,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
 
     } else if (parameterization == "date_delay_time_scaling_t0") {
 
-      # 2.1.2. Date/delay effect - changes in time scaling (kappa) & t0 ----------
+      # 2.1.1.2. Date/delay effect - changes in time scaling (kappa) & t0 ----------
 
       # delay frame: kappa = 1, t0 = t01
       params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["theta_star"], x["t01"])
@@ -1673,7 +1968,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
 
     } else if (parameterization == "date_delay_value_scaling") {
 
-      # 2.2.1. Date/delay effect - changes in value scaling (mu) -----------------
+      # 2.1.2.1. Date/delay effect - changes in value scaling (mu) -----------------
 
       # delay frame: mu = 1
       params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t0"])
@@ -1684,7 +1979,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
 
     } else if (parameterization == "date_delay_value_scaling_t0") {
 
-      # 2.2.2. Date/delay effect - changes in value scaling (mu) & t0 ------------
+      # 2.1.2.2. Date/delay effect - changes in value scaling (mu) & t0 ------------
 
       # delay frame: mu = 1, t0 = t01
       params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t01"])
@@ -1693,9 +1988,33 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
       params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t02"])
       names(params[[1]]) = names(params[[2]]) = parameter_names
 
+    } else if (parameterization == "date_delay_time_and_value_scaling") {
+
+      # 2.1.3.1. Date/delay effect - changes in time scaling (kappa) & value scaling (mu) ---------------
+
+      # delay frame: kappa = 1, mu = 1
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa1"], x["w"], x["theta_star"], x["t0"])
+
+      # date frame: kappa = kappa_loss < 1, mu = mu_gain > 1
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa2"], x["w"], x["theta_star"], x["t0"])
+
+      names(params[[1]]) = names(params[[2]]) = parameter_names
+
+    } else if (parameterization == "date_delay_time_and_value_scaling_t0") {
+
+      # 2.1.3.2. Date/delay effect - changes in time scaling (kappa), value scaling (mu) & t0 ----------
+
+      # delay frame: kappa = 1, mu = 1, t0 = t01
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa1"], x["w"], x["theta_star"], x["t01"])
+
+      # date frame: kappa = kappa_loss < 1, mu = mu_gain > 1, t0 = t02
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa2"], x["w"], x["theta_star"], x["t02"])
+
+      names(params[[1]]) = names(params[[2]]) = parameter_names
+
     } else if (parameterization == "defer_speedup_time_scaling") {
 
-      # 2.3.1. Defer/speedup effect - changes in time scaling (kappa) --------------
+      # 2.2.1.1. Defer/speedup effect - changes in time scaling (kappa) --------------
 
       # neutral frame: kappa = 1
       params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["theta_star"], x["t0"])
@@ -1710,7 +2029,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
 
     } else if (parameterization == "defer_speedup_time_scaling_t0") {
 
-      # 2.3.2. Defer/speedup effect - changes in time scaling (kappa) & t0 -------
+      # 2.2.1.2. Defer/speedup effect - changes in time scaling (kappa) & t0 -------
 
       # neutral frame: kappa = 1
       params[[1]] = c(x["alpha"], x["mu"], x["beta"], x["kappa1"], x["w"], x["theta_star"], x["t01"])
@@ -1725,7 +2044,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
 
     } else if (parameterization == "defer_speedup_value_scaling") {
 
-      # 2.4.1. Defer/speedup effect - changes in value scaling (mu) --------------
+      # 2.2.2.1. Defer/speedup effect - changes in value scaling (mu) --------------
 
       # neutral frame: mu = 1
       params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t0"])
@@ -1739,7 +2058,7 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
       names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
     } else if (parameterization == "defer_speedup_value_scaling_t0") {
 
-      # 2.4.2. Defer/speedup effect - changes in value scaling (mu) & t0 ---------
+      # 2.2.2.2. Defer/speedup effect - changes in value scaling (mu) & t0 ---------
 
       # neutral frame: mu = 1, t0 = t01
       params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t01"])
@@ -1751,6 +2070,37 @@ get_par_values = function(x, model = "DFT_C", parameterization = "") {
       params[[3]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa"], x["w"], x["theta_star"], x["t03"])
 
       names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+
+    } else if (parameterization == "defer_speedup_time_and_value_scaling") {
+
+      # 2.2.3.1. Defer/speedup effect - changes in time scaling (kappa) --------------
+
+      # neutral frame: kappa = 1, mu = 1
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa1"], x["w"], x["theta_star"], x["t0"])
+
+      # defer frame: kappa = 1, mu > 1
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa2"], x["w"], x["theta_star"], x["t0"])
+
+      # speedup frame: kappa = 1, mu > 1
+      params[[3]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa3"], x["w"], x["theta_star"], x["t0"])
+
+      names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+
+    } else if (parameterization == "defer_speedup_time_and_value_scaling_t0") {
+
+      # 2.2.3.2. Defer/speedup effect - changes in time scaling (kappa) & t0 -------
+
+      # neutral frame: kappa = 1, mu = 1
+      params[[1]] = c(x["alpha"], x["mu1"], x["beta"], x["kappa1"], x["w"], x["theta_star"], x["t01"])
+
+      # defer frame: kappa = 1, mu > 1
+      params[[2]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa2"], x["w"], x["theta_star"], x["t02"])
+
+      # speedup frame: kappa = 1, mu > 1
+      params[[3]] = c(x["alpha"], x["mu2"], x["beta"], x["kappa3"], x["w"], x["theta_star"], x["t03"])
+
+      names(params[[1]]) = names(params[[2]]) = names(params[[3]]) = parameter_names
+
     }
   }
 
@@ -1960,32 +2310,21 @@ nest_join_stimuli_parameters <- function(stimuli = make_stimulus_df(),
 
   # Assertions -----------------------------------------------------------------
   assertthat::assert_that(parameterization %in% c("one_condition",
-                                                  "date_delay_value_scaling",
-                                                  "date_delay_value_scaling_t0",
-                                                  "defer_speedup_value_scaling",
-                                                  "defer_speedup_value_scaling_t0",
                                                   "date_delay_time_scaling",
                                                   "date_delay_time_scaling_t0",
+                                                  "date_delay_time_and_value_scaling",
+                                                  "date_delay_time_and_value_scaling_t0",
+                                                  "date_delay_value_scaling",
+                                                  "date_delay_value_scaling_t0",
                                                   "defer_speedup_time_scaling",
-                                                  "defer_speedup_time_scaling_t0"
+                                                  "defer_speedup_time_scaling_t0",
+                                                  "defer_speedup_time_and_value_scaling",
+                                                  "defer_speedup_time_and_value_scaling_t0",
+                                                  "defer_speedup_value_scaling",
+                                                  "defer_speedup_value_scaling_t0"
   ),
-  msg = "Specify parameterization as \n\"one-condition\" (i.e., estimate parameters from a single experimental condition), \n\"date_delay_value_scaling\" (i.e., estimate free value function scaling parameter across two experimental conditions), \n\"date_delay_value_scaling_t0\" (i.e., estimate free value function scaling parameter and t0 across two experimental conditions), \n\"date_delay_time_scaling\" (i.e., estimate free time function sensitivity parameter across two experimental conditions), \n\"date_delay_time_scaling_t0\" (i.e., estimate free time function sensitivity parameter and t0 across two experimental conditions), \n\"defer_speedup_value_scaling\" (i.e., estimate free value function scaling parameter across two experimental conditions), \n\"defer_speedup_value_scaling_t0\" (i.e., estimate free value function scaling parameter and t0 across two experimental conditions), \n\"defer_speedup_time_scaling\" (i.e., estimate free time function scaling parameter  across two experimental conditions), or \n\"defer_speedup_time_scaling_t0\" (i.e., estimate free time function scaling parameter and t0 across two experimental conditions)."
+  msg = "Specify parameterization as \n\"one-condition\" (i.e., estimate parameters from a single experimental condition), \n\"date_delay_value_scaling\" (i.e., estimate free value function scaling parameter across two experimental conditions), \n\"date_delay_value_scaling_t0\" (i.e., estimate free value function scaling parameter and t0 across two experimental conditions), \n\"date_delay_time_scaling\" (i.e., estimate free time function sensitivity parameter across two experimental conditions), \n\"date_delay_time_scaling_t0\" (i.e., estimate free time function sensitivity parameter and t0 across two experimental conditions), \n\"date_delay_time_and_value_scaling\", \n\"date_delay_time_and_value_scaling_t0\", \n\"defer_speedup_value_scaling\" (i.e., estimate free value function scaling parameter across two experimental conditions), \n\"defer_speedup_value_scaling_t0\" (i.e., estimate free value function scaling parameter and t0 across two experimental conditions), \n\"defer_speedup_time_scaling\" (i.e., estimate free time function scaling parameter  across two experimental conditions), or \n\"defer_speedup_time_scaling_t0\" (i.e., estimate free time function scaling parameter and t0 across two experimental conditions), \n\"defer_speedup_time_and_value_scaling\", \n\"defer_speedup_time_and_value_scaling_t0\"."
   )
-
-  # Repeat parameters, if stationary across conditions -------------------------
-  if (parameterization %in% c("one-condition",
-                              "date_delay_value_sensitivity",
-                              "date_delay_value_sensitivity_t0",
-                              "defer_speedup_value_scaling",
-                              "defer_speedup_value_scaling_t0",
-                              "date_delay_time_scaling",
-                              "date_delay_time_scaling_t0",
-                              "defer_speedup_time_scaling",
-                              "defer_speedup_time_scaling_t0")
-  ) {
-    # parameters <- eq_list_elements(parameters,
-    #                                n_cond = length(levels(stimuli$frame)))
-  }
 
   # Nested stimuli -------------------------------------------------------------
   nested_stimuli <-
