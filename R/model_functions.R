@@ -1232,7 +1232,7 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                 # - defer framing: kappa > 1 (over-responsive to deferrals), mu > 1 (smaller du)
                 # - speedup framing: kappa < 1 (under-responsive to speedups), mu > 1 (larger du)
 
-                defer_speedup_time_scaling =
+                defer_speedup_time_and_value_scaling =
                   list(lower = c(l['alpha'], l['mu'], l['mu_loss'], l['beta'], l['kappa'],
                                  l['kappa_loss'], l['kappa_gain'], l['w'], l['a'], l['t0']),
                        upper = c(u['alpha'], u['mu'], u['mu_loss'], u['beta'], u['kappa'],
@@ -1244,7 +1244,7 @@ get_par_bounds = function(model = "DFT_C", parameterization = "", bound = "lower
                 # - defer framing: kappa > 1 (over-responsive to deferrals), mu > 1 (smaller du), t0 = t02
                 # - speedup framing: kappa < 1 (under-responsive to speedups), mu > 1 (larger du), t0 = t03
 
-                defer_speedup_time_scaling_t0 =
+                defer_speedup_time_and_value_scaling_t0 =
                   list(lower = c(l['alpha'], l['mu'], l['mu_loss'], l['beta'], l['kappa'],
                                  l['kappa_loss'], l['kappa_gain'], l['w'],
                                  l['a'], l['t0'], l['t0'], l['t0']),
