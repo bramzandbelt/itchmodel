@@ -893,15 +893,12 @@ get_n_free_param = function(model = "DFT_C", parameterization = "") {
 get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization = "", pcrit = c(.99, .01)) {
 
   # Formulate subfunction for computing probabilities of choosing LL option
-  comp_p_ll <- function(parameters, model, du, dp, d, errorval) {
+  comp_p_ll <- function(resp, rt, parameters, model, du, dp, d, errorval) {
 
     if (model == "DDM") {
 
-      resp <- rep("upper", length(d))
-      resp[d < 0] <- "lower"
-
       p_ll <-
-        tryCatch(rtdists::pdiffusion(rt = rep(Inf, length(d)),
+        tryCatch(rtdists::pdiffusion(rt = rt,
                                      response = resp,
                                      a = parameters["a"],
                                      v = d,
@@ -943,14 +940,17 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
   # Formulate linear inequalities ==============================================
   lineq <- double()
 
-
-
-
   for (i_frame in seq(length(frames))) {
 
     frame <- frames[i_frame]
     parameters <- unlist(x_named[i_frame])
     stimuli <- data$stimuli[data$frame == frame][[1]]
+    # Data need to be sorted for rtdists::pdiffusion
+    obs <-
+      data$observations[[i_frame]] %>%
+      dplyr::arrange(rt)
+    resp <- obs$response
+    rt <- obs$rt
 
     # Constraint 1: When SS amount is 0, P(choose LL) >= 0.99 ------------------
     du_1 <-
@@ -976,7 +976,7 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
     d_1 <- unname(parameters["w"] * du_1 - (1 - parameters["w"]) * dp_1)
 
     p_ll_1 <-
-      comp_p_ll(parameters, model, du = du_1, dp = dp_1, d = d_1, errorval = 0)
+      comp_p_ll(resp, rt, parameters, model, du = du_1, dp = dp_1, d = d_1, errorval = 0)
 
     # P(LL) >= p_crit_1 for all trials
     lineq <- c(lineq, pcrit[1] - p_ll_1)
@@ -1004,9 +1004,8 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
 
     d_2 <- unname(parameters["w"] * du_2 - (1 - parameters["w"]) * dp_2)
 
-
     p_ll_2 <-
-      comp_p_ll(parameters, model, du = du_2, dp = dp_2, d = d_2, errorval = 1)
+      comp_p_ll(resp, rt, parameters, model, du = du_2, dp = dp_2, d = d_2, errorval = 1)
 
     # P(LL) >= p_crit_1 for all trials
     lineq <- c(lineq, p_ll_2 - pcrit[2])
