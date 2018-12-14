@@ -2215,12 +2215,12 @@ ll_dft <- function(x, stimuli, frame = "", observations, rt = TRUE) {
   # 3. Compute densities =======================================================
   if (rt) {
     densities <-
-      tryCatch(dft_dpd(d = d,
-                       s = s,
-                       theta = unname(x["theta_star"] * s),
-                       z = 0,
-                       response = observations$response,
-                       rtd = observations$rt - x["t0"]),
+      tryCatch(rtdists::ddiffusion(rt = observations$rt,
+                                   response = observations$response,
+                                   v = d,
+                                   s = s,
+                                   a = as.double(x["theta_star"]) * s,
+                                   t0 = as.double(x['t0'])),
                error = function(e) 0)
   } else {
     densities <-
