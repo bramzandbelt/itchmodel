@@ -945,6 +945,7 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
     frame <- frames[i_frame]
     parameters <- unlist(x_named[i_frame])
     stimuli <- data$stimuli[data$frame == frame][[1]]
+
     # Data need to be sorted for rtdists::pdiffusion
     obs <-
       data$observations[[i_frame]] %>%
