@@ -490,7 +490,7 @@ get_default_parameter_values <- function() {
 #' DEoptimR minimizes negative log likelihood. get_fit_stats computes log likelihood (LL), Akaike Information Criterion (AIC), and Bayesian Information Criterion (BIC) based on that.
 #'
 #' @export
-get_fit_stats <- function(optim_output, algorithm = "DEoptimR", model = "", parameterization = "", n_data_points) {
+get_fit_stats <- function(optim_output, algorithm = "DEoptimR", model = "", parameterization = "", n_data_points, max_iter=0) {
 
   # Number of free parameters
   n_free_param <- get_n_free_param(model = model,
@@ -505,7 +505,9 @@ get_fit_stats <- function(optim_output, algorithm = "DEoptimR", model = "", para
   } else if (algorithm == "DEoptim") {
     LL <- -optim_out$optim$bestval
     n_iter <- optim_out$optim$iter
-    converged <- NA
+    converged <- ifelse(n_iter < max_iter,
+                        TRUE,
+                        FALSE)
   }
 
   # Return fit statistics
