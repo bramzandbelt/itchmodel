@@ -503,8 +503,8 @@ get_fit_stats <- function(optim_output, algorithm = "DEoptimR", model = "", para
     n_iter <- optim_output$iter
     converged <- ifelse(optim_output$convergence == 0, "TRUE", "FALSE")
   } else if (algorithm == "DEoptim") {
-    LL <- -optim_out$optim$bestval
-    n_iter <- optim_out$optim$iter
+    LL <- -optim_output$optim$bestval
+    n_iter <- optim_output$optim$iter
     converged <- ifelse(n_iter < max_iter,
                         TRUE,
                         FALSE)
