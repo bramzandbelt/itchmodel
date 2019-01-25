@@ -900,7 +900,7 @@ get_nonlinear_constraints <- function(x, data, model = "DFT_C", parameterization
     if (model == "DDM") {
 
       p_ll <-
-        tryCatch(rtdists::pdiffusion(rt = rt,
+        tryCatch(rtdists::pdiffusion(rt = Inf, # Note this should be Inf rather than actual RT for this purpose, because we're interested in cumulative p_ll across all possible RTs
                                      response = resp,
                                      a = parameters["a"],
                                      v = d,
