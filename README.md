@@ -25,11 +25,11 @@ The current version of the model can be parameterized in multiple ways to explai
 
 3. Parameters _mu_ and _kappa_ vary between frames, corresponding to the hypothesis that time framing influences both valuation and time weighting/perception.
 
-4. Parameters _mu_ and _t0_ vary between frames; as 1., but also explaining for RT differences due to differences in stimuli.
+4. Parameters _mu_ and _t0_ vary between frames; as 1., but also explaining RT differences due to differences in stimuli.
 
-5. Parameters _kappa_ and _t0_ vary between frames; as 2., but also explaining for RT differences due to differences in stimuli.
+5. Parameters _kappa_ and _t0_ vary between frames; as 2., but also explaining RT differences due to differences in stimuli.
 
-6. Parameters _mu_, _kappa_, and _t0_ vary between frames; as 3., but also explaining for RT differences due to differences in stimuli.
+6. Parameters _mu_, _kappa_, and _t0_ vary between frames; as 3., but also explaining RT differences due to differences in stimuli.
 
 ## Installation
 
